@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.ino": "cpp",
+        "functional": "cpp",
+        "type_traits": "cpp"
+    }
+}
