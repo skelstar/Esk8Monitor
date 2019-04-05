@@ -67,6 +67,8 @@ void setup()
 	Serial.begin(9600);
   Serial.println("Starting BLE work!");
 
+  stickdata.batteryVoltage = 35.0;
+
   setupBLE();
 }
 
@@ -79,6 +81,9 @@ void loop() {
   if (millis() - now > 2000) {
     now = millis();
     sendToClient();
+    if (stickdata.batteryVoltage > 44.2) {
+      stickdata.batteryVoltage = 35.0;
+    }
   }
 }
 //*************************************************************

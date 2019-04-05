@@ -21,6 +21,9 @@
 #define MODE_WAKE_DISPLAY       2
 #define MODE_BATTERY_VOLTAGE    3
 #define MODE_MOTOR_CURRENT      4
+#define MODE_CONNECTING         5
+#define MODE_CONNECTED          6
+#define MODE_DO_NOTHING         7
 
 uint8_t display_mode = MODE_BATTERY_VOLTAGE;
 
@@ -30,12 +33,13 @@ struct STICK_DATA {
 	bool moving;
 	bool vescOnline;
 };
-STICK_DATA stickdata;
+STICK_DATA stickdata, oldstickdata;
 
 #include "bleClient.h"
 
 int currentLocalBatteryCharge = 0;
 
+#include "utils.h"
 #include "display.h"
 
 /* ---------------------------------------------- */
@@ -87,6 +91,8 @@ void setup() {
     Serial.begin(9600);
     Serial.println("\nStarting Arduino BLE Client application...");
 
+    display_mode = MODE_CONNECTING;
+
     setupPeripherals();
 
     // if button held then we can shut down
@@ -95,16 +101,18 @@ void setup() {
       button.serviceEvents();
     }
     button.serviceEvents();
-    
-    // bleConnectToServer();
 }
 
 void loop()
 {
     button.serviceEvents();
 
-    if ( connected == false ) {
-      bleConnectToServer();
+    if ( serverConnected == false ) {
+      serverConnected = bleConnectToServer();
+      display_mode = MODE_CONNECTING;
+    }
+    else {
+      display_mode = updateDisplay(display_mode); // returns new mode
     }
 
     delay(100);

@@ -2,20 +2,20 @@
 /* ---------------------------------------------- */
 static BLEAddress *pServerAddress;
 static boolean doConnect = false;
-static boolean connected = false;
+static boolean serverConnected = false;
 static BLERemoteCharacteristic *pRemoteCharacteristic;
 
 class MyClientCallback : public BLEClientCallbacks
 {
   void onConnect(BLEClient *pclient)
   {
-    connected = true;
-    Serial.printf("connected! \n");
+    serverConnected = true;
+    Serial.printf("serverConnected! \n");
   }
 
   void onDisconnect(BLEClient *pclient)
   {
-    connected = false;
+    serverConnected = false;
     Serial.printf("disconnected!");
   }
 };
