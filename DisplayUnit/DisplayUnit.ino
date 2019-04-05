@@ -358,7 +358,12 @@ void drawBattery(int percent) {
         KNOB_HEIGHT
     );    // knob
     u8g2.setDrawColor(0);
-    u8g2.drawBox(outsideX + BORDER_SIZE, outsideY + BORDER_SIZE, BATTERY_WIDTH - BORDER_SIZE*2, BATTERY_HEIGHT - BORDER_SIZE*2);
+    u8g2.drawBox(
+        outsideX + BORDER_SIZE, 
+        outsideY + BORDER_SIZE, 
+        BATTERY_WIDTH - BORDER_SIZE*2, 
+        BATTERY_HEIGHT - BORDER_SIZE*2
+    );
     u8g2.setDrawColor(1);
     u8g2.drawBox(
         outsideX + BORDER_SIZE*2, 
