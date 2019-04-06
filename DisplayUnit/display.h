@@ -14,7 +14,7 @@ void lcdNumber(char *number)
   int width = u8g2.getStrWidth(number);
   u8g2.drawStr(128 / 2 - width / 2, 64 / 2, number);
 }
-
+//--------------------------------------------------------------------------------
 #define BAR_GRAPH_THICKNESS 5
 void lcdBarGraph(float percentage)
 {
@@ -22,22 +22,22 @@ void lcdBarGraph(float percentage)
   float x2 = 128.0 * percentage;
   u8g2.drawBox(0, 64 - BAR_GRAPH_THICKNESS, x2, BAR_GRAPH_THICKNESS);
 }
-
+//--------------------------------------------------------------------------------
 void lcdMotorCurrent(float current)
 {
   u8g2.clearBuffer();
   char buff2[8];
   char buff[8];                                // Buffer big enough for 7-character float
-  dtostrf(stickdata.motorCurrent, 2, 1, buff); // Leave room for too large numbers!
+  dtostrf(vescdata.motorCurrent, 2, 1, buff); // Leave room for too large numbers!
   sprintf(buff2, "%sA", buff);
   lcdNumber(buff2);
-  if (stickdata.motorCurrent > 0)
+  if (vescdata.motorCurrent > 0)
   {
-    lcdBarGraph(stickdata.motorCurrent / 40.0);
+    lcdBarGraph(vescdata.motorCurrent / 40.0);
   }
   u8g2.sendBuffer();
 }
-
+//--------------------------------------------------------------------------------
 void lcdMessage(char *message)
 {
   u8g2.clearBuffer();
@@ -47,7 +47,7 @@ void lcdMessage(char *message)
   u8g2.drawStr(128 / 2 - width / 2, 64 / 2, message);
   u8g2.sendBuffer();
 }
-
+//--------------------------------------------------------------------------------
 #define BATTERY_WIDTH 100
 #define BATTERY_HEIGHT 50
 #define BORDER_SIZE 6
@@ -78,37 +78,47 @@ void drawBattery(int percent)
       BATTERY_HEIGHT - BORDER_SIZE * 4);
   u8g2.sendBuffer();
 }
-
+//--------------------------------------------------------------------------------
 bool display_needs_to_update(uint8_t mode)
 {
-  if (mode == MODE_BATTERY_VOLTAGE && stickdata.batteryVoltage != oldstickdata.batteryVoltage)
-  {
-    oldstickdata = stickdata;
-    return true;
+  bool changed = false;
+  switch ( mode ) {
+    case MODE_BATTERY_VOLTAGE:
+      changed = vescdata.batteryVoltage != oldvescdata.batteryVoltage;
+      break;
+    case MODE_MOTOR_CURRENT:
+      changed = vescdata.motorCurrent != oldvescdata.motorCurrent;
+      break;
+    default:
+      changed = mode == MODE_CONNECTING || mode == MODE_CONNECTED;
   }
-  return mode == MODE_CONNECTING || mode == MODE_CONNECTED;
+  oldvescdata = vescdata;
+  return changed;
 }
-
+//--------------------------------------------------------------------------------
 uint8_t updateDisplay(uint8_t mode)
 {
-  if (display_needs_to_update(mode))
+  if ( display_needs_to_update(mode) )
   {
     switch (mode)
     {
-      case MODE_BATTERY_VOLTAGE:
-        Serial.printf("data_changed \n");
-        drawBattery(getBatteryPercentage(stickdata.batteryVoltage));
-        break;
-
       case MODE_CONNECTING:
         lcdMessage("connecting");
         return MODE_CONNECTED;
-        break;
 
       case MODE_CONNECTED:
         lcdMessage("connected");
         delay(500);
         return MODE_BATTERY_VOLTAGE;
+
+      case MODE_BATTERY_VOLTAGE:
+        Serial.printf("data_changed \n");
+        drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
+        break;
+
+      case MODE_MOTOR_CURRENT:
+        Serial.printf("data_changed (MODE_MOTOR_CURRENT) \n");
+        lcdMotorCurrent(vescdata.motorCurrent);
         break;
 
       default:
@@ -118,3 +128,4 @@ uint8_t updateDisplay(uint8_t mode)
   }
   return mode;
 }
+//--------------------------------------------------------------------------------

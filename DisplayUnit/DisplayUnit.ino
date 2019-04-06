@@ -2,7 +2,6 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <myPushButton.h>
-#include "BLEDevice.h"
 #include <driver/adc.h>
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -27,17 +26,18 @@
 
 uint8_t display_mode = MODE_BATTERY_VOLTAGE;
 
-struct STICK_DATA {
-	float batteryVoltage;
-	float motorCurrent;
-	bool moving;
-	bool vescOnline;
+struct VESC_DATA
+{
+  float batteryVoltage;
+  float motorCurrent;
+  bool moving;
+  bool vescOnline;
+  float ampHours;
+  int32_t tripMeter;
 };
-STICK_DATA stickdata, oldstickdata;
+VESC_DATA vescdata, oldvescdata;
 
 #include "bleClient.h"
-
-int currentLocalBatteryCharge = 0;
 
 #include "utils.h"
 #include "display.h"
@@ -63,21 +63,27 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
 			break;
 		case button.EV_RELEASED:
 			Serial.println("EV_RELEASED");
-            if (eventParam >= 2) {
-                deepSleep();
-            }            
+      if (eventParam >= 2) {
+        deepSleep();
+      }      
+      else if ( display_mode == MODE_BATTERY_VOLTAGE ) {  
+        display_mode = MODE_MOTOR_CURRENT;
+        Serial.printf("display_mode = MODE_MOTOR_CURRENT");
+      }
+      else if ( display_mode == MODE_MOTOR_CURRENT ) {
+        display_mode = MODE_BATTERY_VOLTAGE;
+        Serial.printf("display_mode = MODE_BATTERY_VOLTAGE");
+      }
 			break;
 		case button.EV_DOUBLETAP:
-			// Serial.println("EV_DOUBLETAP");
 			break;
 		case button.EV_HELD_SECONDS:
-            if (eventParam >= 2) {
-                lcdMessage("release!");
-            }
-            else {
-                lcdMessage("powering down");
-            }
-			// Serial.printf("EV_HELD_SECONDS %d\n", eventParam);
+      if (eventParam >= 2) {
+          lcdMessage("release!");
+      }
+      else {
+          lcdMessage("powering down");
+      }
 			break;
     }
 }

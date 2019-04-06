@@ -1,3 +1,4 @@
+#include "BLEDevice.h"
 
 /* ---------------------------------------------- */
 static BLEAddress *pServerAddress;
@@ -26,8 +27,8 @@ static void notifyCallback(
   size_t length,
   bool isNotify)
 {
-  memcpy(&stickdata, pData, sizeof(stickdata));
-  Serial.printf("Received batteryVoltage: %.1f \n", stickdata.batteryVoltage);
+  memcpy(&vescdata, pData, sizeof(vescdata));
+  Serial.printf("Received batteryVoltage: %.1f \n", vescdata.batteryVoltage);
 }
 
 bool bleConnectToServer()
