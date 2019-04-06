@@ -2,6 +2,8 @@
     "files.associations": {
         "*.ino": "cpp",
         "functional": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp"
     }
 }

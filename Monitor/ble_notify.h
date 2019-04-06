@@ -58,7 +58,7 @@ void setupBLE() {
     pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
     pAdvertising->setMinPreferred(0x12);
     BLEDevice::startAdvertising();
-    Serial.printf("Characteristic defined! Now you can read it in your phone!");
+    Serial.printf("Characteristic defined! Now you can read it in your phone!\n");
 }
 
 void sendDataToClient() {

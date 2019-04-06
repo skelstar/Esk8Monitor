@@ -26,9 +26,16 @@ struct VESC_DATA
   bool moving;
   bool vescOnline;
   float ampHours;
-  int32_t tripMeter;
+  float totalAmpHours;
+  float odometer;
+  uint8_t status;
 };
 VESC_DATA vescdata;
+
+#define STATUS_BIT_POWER_DOWN_NORMAL 0
+#define STATUS_BIT_CLEARED_TRIP      1
+
+float totalAmpHours;
 
 //--------------------------------------------------------------
 // #define 	VESC_UART_RX		16		// orange
@@ -62,7 +69,7 @@ debugHelper debug;
 
 Scheduler runner;
 
-bool firstTime = false;
+bool gotFirstVescPacket = false;
 float lastVoltsRead = 0.0;
 float lastStableVoltsRead = 0.0;
 bool interimUpdated = false; // when not moving
@@ -87,6 +94,17 @@ void tGetFromVESC_callback()
   }
   else
   {
+    if ( gotFirstVescPacket == false ) {
+      gotFirstVescPacket = true;
+      // make sure ampHours == false
+      if ( poweredDownNormally() ) {
+        vescdata.odometer = 0;
+        if (vescdata.ampHours > 0.0) {
+          // vesc still has ampHours consumed... remove from totalAmpHours
+          totalAmpHours -= vescdata.ampHours;
+        }
+      }
+    }
     sendDataToClient();
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0;
@@ -121,8 +139,7 @@ void handlePoweringDown()
   {
     alreadyStoreValues = true;
     // store total amp hours
-    float storedAmpHours = recallFloat(STORE_TOTAL_AMP_HOURS);
-    float updatedTotalAmpHours = storedAmpHours + vescdata.ampHours;
+    float updatedTotalAmpHours = totalAmpHours + vescdata.ampHours;
     storeFloat(STORE_TOTAL_AMP_HOURS, updatedTotalAmpHours);
     storeUInt8(STORE_POWERED_DOWN, 1); // true
     Serial.printf("Powering down. Stored totalAmpHours: %.1f \n", updatedTotalAmpHours);
@@ -131,7 +148,12 @@ void handlePoweringDown()
 }
 
 bool poweredDownNormally() {
-  return recallUInt8(STORE_POWERED_DOWN) == 1;
+  bool normal = recallUInt8(STORE_POWERED_DOWN) == 1;
+  if (normal) {
+    bitSet(vescdata.status, STATUS_BIT_POWER_DOWN_NORMAL);
+  }
+  storeUInt8(STORE_POWERED_DOWN, 0);
+  return normal;
 }
 
 /**************************************************************/
@@ -153,10 +175,6 @@ void setup()
 
   vesc_comm_init(VESC_UART_BAUDRATE);
 
-  if ( poweredDownNormally() ) {
-    vescdata.tripMeter = 0;
-  }
-  storeUInt8(STORE_POWERED_DOWN, 0);
 
   debug.init();
   debug.addOption(STARTUP, "STARTUP");
@@ -174,6 +192,8 @@ void setup()
   tGetFromVESC.enable();
 
   setupBLE();
+
+  initData();
 }
 
 //*************************************************************
@@ -184,6 +204,11 @@ void loop()
 }
 //*************************************************************
 bool controllerOnline = true;
+
+void initData() {
+  vescdata.status = 0;
+  totalAmpHours = recallFloat(STORE_TOTAL_AMP_HOURS);
+}
 
 //--------------------------------------------------------------
 bool getVescValues()
@@ -209,8 +234,11 @@ bool getVescValues()
     vescdata.moving = vesc_comm_get_rpm(vesc_packet) > 50;
     vescdata.motorCurrent = vesc_comm_get_motor_current(vesc_packet); // UART.data.avgMotorCurrent;
     vescdata.ampHours = vesc_comm_get_amphours_discharged(vesc_packet);
+    vescdata.totalAmpHours = vescdata.ampHours + totalAmpHours;
     vescdata.vescOnline = true;
-    vescdata.tripMeter = rotations_to_meters(vesc_comm_get_tachometer(vesc_packet) / 6);
+    int32_t distanceMeters = rotations_to_meters(vesc_comm_get_tachometer(vesc_packet) / 6);
+    Serial.printf("distance: %um %.1f\n", distanceMeters, distanceMeters/1000.0);
+    vescdata.odometer = distanceMeters / 1000.0;
   }
   else
   {

@@ -28,7 +28,7 @@ static void notifyCallback(
   bool isNotify)
 {
   memcpy(&vescdata, pData, sizeof(vescdata));
-  Serial.printf("Received batteryVoltage: %.1f \n", vescdata.batteryVoltage);
+  Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
 }
 
 bool bleConnectToServer()

@@ -22,7 +22,8 @@
 #define MODE_MOTOR_CURRENT      4
 #define MODE_CONNECTING         5
 #define MODE_CONNECTED          6
-#define MODE_DO_NOTHING         7
+#define MODE_AMP_HOURS          7
+#define MODE_DO_NOTHING         99
 
 uint8_t display_mode = MODE_BATTERY_VOLTAGE;
 
@@ -33,9 +34,14 @@ struct VESC_DATA
   bool moving;
   bool vescOnline;
   float ampHours;
-  int32_t tripMeter;
+  float totalAmpHours;
+  float odometer; // in kilometers
+  uint8_t status;
 };
 VESC_DATA vescdata, oldvescdata;
+
+#define STATUS_BIT_POWER_DOWN_NORMAL 0
+#define STATUS_BIT_CLEARED_TRIP      1
 
 #include "bleClient.h"
 
@@ -68,11 +74,15 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
       }      
       else if ( display_mode == MODE_BATTERY_VOLTAGE ) {  
         display_mode = MODE_MOTOR_CURRENT;
-        Serial.printf("display_mode = MODE_MOTOR_CURRENT");
+        updateNow = true;
       }
       else if ( display_mode == MODE_MOTOR_CURRENT ) {
+        display_mode = MODE_AMP_HOURS;
+        updateNow = true;
+      }
+      else if ( display_mode == MODE_AMP_HOURS ) {
         display_mode = MODE_BATTERY_VOLTAGE;
-        Serial.printf("display_mode = MODE_BATTERY_VOLTAGE");
+        updateNow = true;
       }
 			break;
 		case button.EV_DOUBLETAP:

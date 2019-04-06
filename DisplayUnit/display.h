@@ -3,8 +3,18 @@
 //https://github.com/olikraus/u8g2/wiki/fntgrpiconic#open_iconic_arrow_2x2
 U8G2_SH1107_64X128_F_4W_HW_SPI u8g2(U8G2_R1, /* cs=*/14, /* dc=*/27, /* reset=*/33);
 
+bool updateNow;
 // u8g2.setFont(u8g2_font_tenfatguys_tf);
 // u8g2.setFont(u8g2_font_tenthinguys_tf);
+
+#define FONT_SIZE_SMALL u8g2_font_profont12_tr
+#define FONT_SIZE_MED   u8g2_font_profont17_tr
+#define FONT_SIZE_MED_LINE_HEIGHT 16
+#define FONT_SIZE_MED_LINE_1 0
+#define FONT_SIZE_MED_LINE_2 FONT_SIZE_MED_LINE_HEIGHT
+#define FONT_SIZE_MED_LINE_3 FONT_SIZE_MED_LINE_HEIGHT * 2
+#define FONT_SIZE_MED_LINE_4 FONT_SIZE_MED_LINE_HEIGHT * 3
+
 
 void lcdNumber(char *number)
 {
@@ -37,6 +47,47 @@ void lcdMotorCurrent(float current)
   }
   u8g2.sendBuffer();
 }
+//--------------------------------------------------------------------------------
+void lcd_medium_float_text(
+    uint8_t x, 
+    uint8_t y, 
+    char* label, 
+    char* paramtext, 
+    float value) {
+  u8g2.setFontPosTop();
+  char buff2[8];
+  char buff[8];                                // Buffer big enough for 7-character float
+  dtostrf(value, 5, 1, buff);
+  sprintf(buff2, paramtext, buff);
+  u8g2.setFont( FONT_SIZE_MED ); // full
+  int width = u8g2.getStrWidth(buff2);
+  u8g2.drawStr(x, y, label);
+  u8g2.drawStr(128-width, y, buff2);
+}
+
+void lcd_medium_char_text(
+    uint8_t x, 
+    uint8_t y, 
+    char* label, 
+    char* value) {
+  u8g2.setFontPosTop();
+  char buff2[8];
+  sprintf(buff2, "%s", value);
+  u8g2.setFont( FONT_SIZE_MED ); // full
+  int width = u8g2.getStrWidth(buff2);
+  u8g2.drawStr(x, y, label);
+  u8g2.drawStr(128-width, y, buff2);
+}
+
+void lcdPage2(float ampHours, float totalAmpHours, float odo) {
+  u8g2.clearBuffer();
+  lcd_medium_float_text(0, FONT_SIZE_MED_LINE_1, "Trip", "%sAh", ampHours);
+  lcd_medium_float_text(0, FONT_SIZE_MED_LINE_2, "Total", "%sAh", totalAmpHours);
+  lcd_medium_float_text(0, FONT_SIZE_MED_LINE_3, "Trip", "%skm", odo);
+  // lcd_medium_float_text(0, FONT_SIZE_MED_LINE_4, "Test2", "", 0.0);
+  u8g2.sendBuffer();
+}
+
 //--------------------------------------------------------------------------------
 void lcdMessage(char *message)
 {
@@ -81,6 +132,10 @@ void drawBattery(int percent)
 //--------------------------------------------------------------------------------
 bool display_needs_to_update(uint8_t mode)
 {
+  if (updateNow) {
+    updateNow = false;
+    return true;
+  }
   bool changed = false;
   switch ( mode ) {
     case MODE_BATTERY_VOLTAGE:
@@ -88,6 +143,9 @@ bool display_needs_to_update(uint8_t mode)
       break;
     case MODE_MOTOR_CURRENT:
       changed = vescdata.motorCurrent != oldvescdata.motorCurrent;
+      break;
+    case MODE_AMP_HOURS:
+      changed = vescdata.ampHours != oldvescdata.ampHours;
       break;
     default:
       changed = mode == MODE_CONNECTING || mode == MODE_CONNECTED;
@@ -109,10 +167,10 @@ uint8_t updateDisplay(uint8_t mode)
       case MODE_CONNECTED:
         lcdMessage("connected");
         delay(500);
+        updateNow = true;
         return MODE_BATTERY_VOLTAGE;
 
       case MODE_BATTERY_VOLTAGE:
-        Serial.printf("data_changed \n");
         drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
         break;
 
@@ -121,6 +179,9 @@ uint8_t updateDisplay(uint8_t mode)
         lcdMotorCurrent(vescdata.motorCurrent);
         break;
 
+      case MODE_AMP_HOURS:
+        lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+        break;
       default:
         return mode;
         break;
