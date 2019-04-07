@@ -154,39 +154,39 @@ bool display_needs_to_update(uint8_t mode)
   return changed;
 }
 //--------------------------------------------------------------------------------
-uint8_t updateDisplay(uint8_t mode)
-{
-  if ( display_needs_to_update(mode) )
-  {
-    switch (mode)
-    {
-      case MODE_CONNECTING:
-        lcdMessage("connecting");
-        return MODE_CONNECTED;
+// uint8_t serviceDisplay(uint8_t state)
+// {
+//   if ( display_needs_to_update(mode) )
+//   {
+//     switch (mode)
+//     {
+//       case MODE_CONNECTING:
+//         lcdMessage("connecting");
+//         return MODE_CONNECTED;
 
-      case MODE_CONNECTED:
-        lcdMessage("connected");
-        delay(500);
-        updateNow = true;
-        return MODE_BATTERY_VOLTAGE;
+//       case MODE_CONNECTED:
+//         lcdMessage("connected");
+//         delay(500);
+//         updateNow = true;
+//         return MODE_BATTERY_VOLTAGE;
 
-      case MODE_BATTERY_VOLTAGE:
-        drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
-        break;
+//       case MODE_BATTERY_VOLTAGE:
+//         drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
+//         break;
 
-      case MODE_MOTOR_CURRENT:
-        Serial.printf("data_changed (MODE_MOTOR_CURRENT) \n");
-        lcdMotorCurrent(vescdata.motorCurrent);
-        break;
+//       case MODE_MOTOR_CURRENT:
+//         Serial.printf("data_changed (MODE_MOTOR_CURRENT) \n");
+//         lcdMotorCurrent(vescdata.motorCurrent);
+//         break;
 
-      case MODE_AMP_HOURS:
-        lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
-        break;
-      default:
-        return mode;
-        break;
-      }
-  }
-  return mode;
-}
+//       case MODE_AMP_HOURS:
+//         lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+//         break;
+//       default:
+//         return mode;
+//         break;
+//       }
+//   }
+//   return mode;
+// }
 //--------------------------------------------------------------------------------

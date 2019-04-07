@@ -3,21 +3,18 @@
 /* ---------------------------------------------- */
 static BLEAddress *pServerAddress;
 static boolean doConnect = false;
-static boolean serverConnected = false;
 static BLERemoteCharacteristic *pRemoteCharacteristic;
 
 class MyClientCallback : public BLEClientCallbacks
 {
   void onConnect(BLEClient *pclient)
   {
-    serverConnected = true;
-    Serial.printf("serverConnected! \n");
+    bleConnected();
   }
 
   void onDisconnect(BLEClient *pclient)
   {
-    serverConnected = false;
-    Serial.printf("disconnected!");
+    bleDisconnected();
   }
 };
 
@@ -28,7 +25,7 @@ static void notifyCallback(
   bool isNotify)
 {
   memcpy(&vescdata, pData, sizeof(vescdata));
-  Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
+  bleReceivedNotify();
 }
 
 bool bleConnectToServer()
@@ -39,13 +36,11 @@ bool bleConnectToServer()
   BLEClient *pClient = BLEDevice::createClient();
   pClient->setClientCallbacks(new MyClientCallback());
   pClient->connect(*pServerAddress);
-  Serial.println("Connected to server");
   delay(500);
   BLERemoteService *pRemoteService = pClient->getService(SERVICE_UUID);
   pRemoteCharacteristic = pRemoteService->getCharacteristic(CHARACTERISTIC_UUID);
   if (pRemoteCharacteristic->canNotify())
   {
-    Serial.println("registering for notify");
     pRemoteCharacteristic->registerForNotify(notifyCallback);
   }
 }

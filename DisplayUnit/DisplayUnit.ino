@@ -4,6 +4,8 @@
 #include <myPushButton.h>
 #include <driver/adc.h>
 
+#include <Fsm.h>
+
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
@@ -26,6 +28,15 @@
 #define MODE_DO_NOTHING         99
 
 uint8_t display_mode = MODE_BATTERY_VOLTAGE;
+static boolean serverConnected = false;
+
+
+#define STATE_POWER_UP        0
+#define STATE_CONNECTING      1
+#define STATE_CONNECTED       2
+#define STATE_BATTERY_VOLTAGE_SCREEN  3
+
+// long onConnectedEnterTime = 0;
 
 struct VESC_DATA
 {
@@ -43,10 +54,98 @@ VESC_DATA vescdata, oldvescdata;
 #define STATUS_BIT_POWER_DOWN_NORMAL 0
 #define STATUS_BIT_CLEARED_TRIP      1
 
-#include "bleClient.h"
 
 #include "utils.h"
 #include "display.h"
+
+
+void on_state_connecting_on_enter();
+void on_state_connected_on_enter();
+void on_state_battery_voltage_screen_on_enter();
+void on_state_page_two_enter();
+void check_battery_voltage_changed();
+void check_page_two_data_changed();
+void on_state_motor_current_screen_on_enter();
+void check_motor_current_changed();
+
+#define BUTTON_CLICK_EVENT  0
+#define EVENT_SERVER_CONNECTED  1
+#define EVENT_SERVER_DISCONNECTED 2
+
+State state_connecting(
+  &on_state_connecting_on_enter, 
+  NULL, 
+  NULL);
+State state_connected(
+  &on_state_connected_on_enter, 
+  NULL, 
+  NULL);
+State state_battery_voltage_screen(
+  &on_state_battery_voltage_screen_on_enter, 
+  &check_battery_voltage_changed,
+  NULL); 
+State state_motor_current_screen(
+  &on_state_motor_current_screen_on_enter, 
+  &check_motor_current_changed,
+  NULL); 
+State state_page_two(
+  &on_state_page_two_enter,
+  &check_page_two_data_changed,
+  NULL);
+Fsm fsm(&state_connecting);
+
+void on_state_connecting_on_enter() {
+  Serial.printf("on_state_connecting_on_enter()\n");
+  lcdMessage("connecting");
+}
+void on_state_connected_on_enter() {
+  lcdMessage("connected");
+}
+void on_state_battery_voltage_screen_on_enter() {
+  drawBattery( getBatteryPercentage(vescdata.batteryVoltage) );
+}
+void check_battery_voltage_changed() {
+  if (vescdata.batteryVoltage != oldvescdata.batteryVoltage) {
+    oldvescdata = vescdata;
+    drawBattery( getBatteryPercentage(vescdata.batteryVoltage) );
+  }
+}
+void on_state_motor_current_screen_on_enter() {
+  lcdMotorCurrent(vescdata.motorCurrent);
+}
+void check_motor_current_changed() {
+  if (vescdata.motorCurrent != oldvescdata.motorCurrent) {
+    oldvescdata = vescdata;
+    lcdMotorCurrent(vescdata.motorCurrent);
+  }
+}
+void on_state_page_two_enter() {
+  lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+}
+void check_page_two_data_changed() {
+  if (vescdata.ampHours != oldvescdata.ampHours) {
+    oldvescdata = vescdata;
+    lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+  }
+}
+
+void bleConnected() {
+  Serial.printf("serverConnected! \n");
+  serverConnected = true;
+  fsm.trigger( EVENT_SERVER_CONNECTED );
+}
+
+void bleDisconnected() {
+  serverConnected = false;
+  Serial.printf("disconnected!");
+  fsm.trigger( EVENT_SERVER_DISCONNECTED );
+}
+
+void bleReceivedNotify() {
+  Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
+}
+
+#include "bleClient.h"
 
 /* ---------------------------------------------- */
 
@@ -72,17 +171,8 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
       if (eventParam >= 2) {
         deepSleep();
       }      
-      else if ( display_mode == MODE_BATTERY_VOLTAGE ) {  
-        display_mode = MODE_MOTOR_CURRENT;
-        updateNow = true;
-      }
-      else if ( display_mode == MODE_MOTOR_CURRENT ) {
-        display_mode = MODE_AMP_HOURS;
-        updateNow = true;
-      }
-      else if ( display_mode == MODE_AMP_HOURS ) {
-        display_mode = MODE_BATTERY_VOLTAGE;
-        updateNow = true;
+      else {
+        fsm.trigger( BUTTON_CLICK_EVENT );
       }
 			break;
 		case button.EV_DOUBLETAP:
@@ -107,13 +197,25 @@ void setup() {
     Serial.begin(9600);
     Serial.println("\nStarting Arduino BLE Client application...");
 
-    display_mode = MODE_CONNECTING;
+    fsm.add_transition(&state_connecting, &state_connected, EVENT_SERVER_CONNECTED, NULL);
+    fsm.add_timed_transition(&state_connected, &state_battery_voltage_screen, 1000, NULL);
+    // BUTTON_CLICK_EVENT
+    fsm.add_transition(&state_battery_voltage_screen, &state_page_two, BUTTON_CLICK_EVENT, NULL);
+    fsm.add_transition(&state_page_two, &state_motor_current_screen, BUTTON_CLICK_EVENT, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_battery_voltage_screen, BUTTON_CLICK_EVENT, NULL);
+    // EVENT_SERVER_DISCONNECTED
+    fsm.add_transition(&state_battery_voltage_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
+    fsm.add_transition(&state_page_two, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
+    
+    fsm.run_machine();
 
     setupPeripherals();
 
     // if button held then we can shut down
     button.serviceEvents();
     while (button.isPressed()) {
+      fsm.run_machine();
       button.serviceEvents();
     }
     button.serviceEvents();
@@ -125,11 +227,9 @@ void loop()
 
     if ( serverConnected == false ) {
       serverConnected = bleConnectToServer();
-      display_mode = MODE_CONNECTING;
     }
-    else {
-      display_mode = updateDisplay(display_mode); // returns new mode
-    }
+
+    fsm.run_machine();
 
     delay(100);
 }
