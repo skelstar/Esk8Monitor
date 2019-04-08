@@ -25,6 +25,10 @@ static boolean serverConnected = false;
 #define STATE_CONNECTED 2
 #define STATE_BATTERY_VOLTAGE_SCREEN 3
 
+#define CHECK_BATT_VOLTS  1
+#define CHECK_AMP_HOURS   2
+#define CHECK_MOTOR_CURRENT 3
+
 struct VESC_DATA
 {
   float batteryVoltage;
@@ -37,6 +41,29 @@ struct VESC_DATA
   uint8_t status;
 };
 VESC_DATA vescdata, oldvescdata;
+
+bool valueChanged(uint8_t measure) {
+  switch (measure) {
+    case CHECK_BATT_VOLTS:
+      if (oldvescdata.batteryVoltage != vescdata.batteryVoltage) {
+        oldvescdata.batteryVoltage = vescdata.batteryVoltage;
+        return true;
+      }
+      return false;
+    case CHECK_AMP_HOURS:
+      if (oldvescdata.ampHours != vescdata.ampHours) {
+        oldvescdata.ampHours = vescdata.ampHours;
+        return true;
+      }
+      return false;
+    case CHECK_MOTOR_CURRENT:
+      if (oldvescdata.motorCurrent != vescdata.motorCurrent) {
+        oldvescdata.motorCurrent = vescdata.motorCurrent;
+        return true;
+      }
+      return false;
+  }
+}
 
 #include "utils.h"
 #include "display.h"
@@ -70,9 +97,7 @@ State state_battery_voltage_screen(
 void enter_battery_voltage_screen() { drawBattery(getBatteryPercentage(vescdata.batteryVoltage)); }
 void check_battery_voltage_changed()
 {
-  if (oldvescdata.batteryVoltage != vescdata.batteryVoltage)
-  {
-    oldvescdata.batteryVoltage = vescdata.batteryVoltage;
+  if ( valueChanged(CHECK_BATT_VOLTS) ) {
     drawBattery( getBatteryPercentage(vescdata.batteryVoltage) );
   }
 }
@@ -83,13 +108,13 @@ State state_motor_current_screen(
     &enter_motor_current_screen,
     &check_motor_current_changed,
     NULL);
-void enter_motor_current_screen() { lcdMotorCurrent(vescdata.motorCurrent); }
+void enter_motor_current_screen() { 
+  lcdMovingScreen(vescdata.motorCurrent); 
+}
 void check_motor_current_changed()
 {
-  if (oldvescdata.motorCurrent != vescdata.motorCurrent)
-  {
-    oldvescdata.motorCurrent = vescdata.motorCurrent;
-    lcdMotorCurrent(vescdata.motorCurrent);
+  if (valueChanged(CHECK_MOTOR_CURRENT)) {
+    lcdMovingScreen(vescdata.motorCurrent);
   }
 }
 // state_page_2
@@ -102,9 +127,7 @@ State state_page_two(
 void enter_page_two() { lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer); }
 void check_page_two_data_changed()
 {
-  if (oldvescdata.ampHours != vescdata.ampHours)
-  {
-    oldvescdata.ampHours = vescdata.ampHours;
+  if (valueChanged(CHECK_AMP_HOURS)) {
     lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer);
   }
 }
@@ -126,7 +149,7 @@ void addFsmTransitions() {
   fsm.add_transition(&state_battery_voltage_screen, &state_connecting, event, NULL);
   fsm.add_transition(&state_page_two, &state_connecting, event, NULL);
   fsm.add_transition(&state_motor_current_screen, &state_connecting, event, NULL);
-    // SERVER_CONNECTED
+  // SERVER_CONNECTED
   event = SERVER_CONNECTED;
   fsm.add_transition(&state_connecting, &state_connected, event, NULL);
   fsm.add_timed_transition(&state_connected, &state_battery_voltage_screen, 1000, NULL);
@@ -201,57 +224,47 @@ myPushButton button(BtnPin, PULLUP, OFFSTATE, listener_Button);
 void listener_Button(int eventCode, int eventPin, int eventParam)
 {
 
-  bool sleepTimeSlot = eventParam >= 2 && eventParam <= 3;
-  bool clearTripOdoSlot = eventParam >= 4 && eventParam <= 5;
+  bool sleepTimeWindow = eventParam >= 2 && eventParam <= 3;
+  bool clearTripWindow = eventParam >= 4 && eventParam <= 5;
 
   switch (eventCode)
   {
-  case button.EV_BUTTON_PRESSED:
-    Serial.println("EV_BUTTON_PRESSED");
-    break;
-  case button.EV_RELEASED:
-    Serial.printf("EV_RELEASED %d\n", eventParam);
-    if (sleepTimeSlot)
-    {
-      deepSleep();
+    case button.EV_BUTTON_PRESSED:
       break;
-    }
-    if (clearTripOdoSlot)
-    {
-      sendClearTripOdoToMonitor();
+
+    case button.EV_RELEASED:
+      if (sleepTimeWindow)
+      {
+        deepSleep();
+        break;
+      }
+      if (clearTripWindow)
+      {
+        sendClearTripOdoToMonitor();
+        break;
+      }
+      else
+      {
+        fsm.trigger(BUTTON_CLICK);
+      }
       break;
-    }
-    else if (eventParam < 2)
-    {
-      fsm.trigger(BUTTON_CLICK);
-    }
-    else
-    {
-      fsm.trigger(BUTTON_CLICK);
-    }
-    break;
-  case button.EV_DOUBLETAP:
-    break;
-  case button.EV_HELD_SECONDS:
-    Serial.printf("HELD %d seconds \n", eventParam);
-    if (sleepTimeSlot)
-    {
-      Serial.printf("HELD_POWERDOWN_WINDOW \n");
-      fsm.trigger(HELD_POWERDOWN_WINDOW);
-      // lcdMessage("release!");
-    }
-    else if (clearTripOdoSlot)
-    {
-      Serial.printf("HELD_CLEAR_TRIP_WINDOW \n");
-      fsm.trigger(HELD_CLEAR_TRIP_WINDOW);
-    }
-    else
-    {
-      Serial.printf("BUTTON_BEING_HELD \n");
-      fsm.trigger(BUTTON_BEING_HELD);
-      // lcdMessage("powering down");
-    }
-    break;
+    case button.EV_DOUBLETAP:
+      break;
+    case button.EV_HELD_SECONDS:
+      Serial.printf("HELD %d seconds \n", eventParam);
+      if (sleepTimeWindow)
+      {
+        fsm.trigger(HELD_POWERDOWN_WINDOW);
+      }
+      else if (clearTripWindow)
+      {
+        fsm.trigger(HELD_CLEAR_TRIP_WINDOW);
+      }
+      else
+      {
+        fsm.trigger(BUTTON_BEING_HELD);
+      }
+      break;
   }
 }
 
@@ -289,6 +302,14 @@ void loop()
     serverConnected = bleConnectToServer();
   }
 
+  checkBoardMoving();
+
+  fsm.run_machine();
+
+  delay(100);
+}
+
+void checkBoardMoving() {
   if (oldvescdata.moving != vescdata.moving)
   {
     oldvescdata.moving = vescdata.moving;
@@ -301,10 +322,6 @@ void loop()
       fsm.trigger(STOPPED_MOVING);
     }
   }
-
-  fsm.run_machine();
-
-  delay(100);
 }
 
 void buzzerBuzz()
