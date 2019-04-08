@@ -44,65 +44,74 @@ bool oldMoving = false;
 #include "utils.h"
 #include "display.h"
 
+
+enum EventsEnum {
+  BUTTON_CLICK,
+  SERVER_CONNECTED,
+  SERVER_DISCONNECTED,
+  MOVING,
+  STOPPED_MOVING,
+  HELD_POWERDOWN_WINDOW,
+  HELD_CLEAR_TRIP_WINDOW,
+  BUTTON_BEING_HELD,
+  SENT_CLEAR_TRIP_ODO,
+  HELD_RELEASED
+} event;
+
 void on_state_connecting_on_enter();
-void on_state_connected_on_enter();
-void on_state_battery_voltage_screen_on_enter();
-void on_state_page_two_enter();
-void check_battery_voltage_changed();
-void check_page_two_data_changed();
-void on_state_motor_current_screen_on_enter();
-void check_motor_current_changed();
-void on_button_held_powerdown_window_enter();
-void on_button_held_clear_trip_window_enter();
-void on_button_being_held_enter();
-
-
-#define BUTTON_CLICK_EVENT  0
-#define EVENT_SERVER_CONNECTED  1
-#define EVENT_SERVER_DISCONNECTED 2
-#define EVENT_MOVING 4
-#define EVENT_STOPPED_MOVING                  5
-#define EVENT_HELD_POWERDOWN_WINDOW       6
-#define EVENT_HELD_CLEAR_TRIP_WINDOW  7
-#define EVENT_BUTTON_BEING_HELD               8
-#define EVENT_SENT_CLEAR_TRIP_ODO       9
-#define EVENT_HELD_RELEASED             10
-
 State state_connecting(
   &on_state_connecting_on_enter, 
   NULL, 
   NULL);
+
+void on_state_connected_on_enter();
 State state_connected(
   &on_state_connected_on_enter, 
   NULL, 
   NULL);
+
+void on_state_battery_voltage_screen_on_enter();
+void check_battery_voltage_changed();
 State state_battery_voltage_screen(
   &on_state_battery_voltage_screen_on_enter, 
   &check_battery_voltage_changed,
   NULL); 
+
+void on_state_motor_current_screen_on_enter();
+void check_motor_current_changed();
 State state_motor_current_screen(
   &on_state_motor_current_screen_on_enter, 
   &check_motor_current_changed,
   NULL); 
+
+void check_page_two_data_changed();
+void on_state_page_two_enter();
 State state_page_two(
   &on_state_page_two_enter,
   &check_page_two_data_changed,
   NULL);
+
+void on_button_held_powerdown_window_enter();
 State state_button_held_powerdown_window(
   &on_button_held_powerdown_window_enter,
   NULL,
   NULL
 );
+
+void on_button_held_clear_trip_window_enter();
 State state_button_held_clear_trip_window(
   &on_button_held_clear_trip_window_enter,
   NULL,
   NULL
 );
+
+void on_button_being_held_enter();
 State state_button_being_held(
   &on_button_being_held_enter,
   NULL,
   NULL
 );
+
 Fsm fsm(&state_connecting);
 
 void on_state_connecting_on_enter() {
@@ -156,13 +165,13 @@ void on_button_being_held_enter() { lcdMessage("..."); }
 void bleConnected() {
   Serial.printf("serverConnected! \n");
   serverConnected = true;
-  fsm.trigger( EVENT_SERVER_CONNECTED );
+  fsm.trigger( SERVER_CONNECTED );
 }
 
 void bleDisconnected() {
   serverConnected = false;
   Serial.printf("disconnected!");
-  fsm.trigger( EVENT_SERVER_DISCONNECTED );
+  fsm.trigger( SERVER_DISCONNECTED );
 }
 
 void bleReceivedNotify() {
@@ -204,10 +213,10 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
         break;
       }
       else if (eventParam < 2) {
-        fsm.trigger( BUTTON_CLICK_EVENT );
+        fsm.trigger( BUTTON_CLICK );
       }
       else {
-        fsm.trigger( BUTTON_CLICK_EVENT );
+        fsm.trigger( BUTTON_CLICK );
       }
 			break;
 		case button.EV_DOUBLETAP:
@@ -215,17 +224,17 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
 		case button.EV_HELD_SECONDS:
       Serial.printf("HELD %d seconds \n", eventParam);
       if ( sleepTimeSlot ) {
-        Serial.printf("EVENT_HELD_POWERDOWN_WINDOW \n");
-        fsm.trigger( EVENT_HELD_POWERDOWN_WINDOW );
+        Serial.printf("HELD_POWERDOWN_WINDOW \n");
+        fsm.trigger( HELD_POWERDOWN_WINDOW );
           // lcdMessage("release!");
       }
       else if ( clearTripOdoSlot ) {
-        Serial.printf("EVENT_HELD_CLEAR_TRIP_WINDOW \n");
-        fsm.trigger( EVENT_HELD_CLEAR_TRIP_WINDOW );
+        Serial.printf("HELD_CLEAR_TRIP_WINDOW \n");
+        fsm.trigger( HELD_CLEAR_TRIP_WINDOW );
       }
       else {
-        Serial.printf("EVENT_BUTTON_BEING_HELD \n");
-        fsm.trigger( EVENT_BUTTON_BEING_HELD );
+        Serial.printf("BUTTON_BEING_HELD \n");
+        fsm.trigger( BUTTON_BEING_HELD );
           // lcdMessage("powering down");
       }
 			break;
@@ -241,35 +250,35 @@ void setup() {
     Serial.begin(9600);
     Serial.println("\nStarting Arduino BLE Client application...");
 
-    fsm.add_transition(&state_connecting, &state_connected, EVENT_SERVER_CONNECTED, NULL);
+    fsm.add_transition(&state_connecting, &state_connected, SERVER_CONNECTED, NULL);
     fsm.add_timed_transition(&state_connected, &state_battery_voltage_screen, 1000, NULL);
-    // BUTTON_CLICK_EVENT
-    fsm.add_transition(&state_battery_voltage_screen, &state_page_two, BUTTON_CLICK_EVENT, NULL);
-    fsm.add_transition(&state_page_two, &state_motor_current_screen, BUTTON_CLICK_EVENT, NULL);
-    fsm.add_transition(&state_motor_current_screen, &state_battery_voltage_screen, BUTTON_CLICK_EVENT, NULL);
-    // EVENT_SERVER_DISCONNECTED -> state_connecting
-    fsm.add_transition(&state_battery_voltage_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
-    fsm.add_transition(&state_page_two, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
-    fsm.add_transition(&state_motor_current_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
-    // EVENT_MOVING -> state_motor_current_screen
-    fsm.add_transition(&state_battery_voltage_screen, &state_motor_current_screen, EVENT_MOVING, NULL);
-    fsm.add_transition(&state_page_two, &state_motor_current_screen, EVENT_MOVING, NULL);
-    // EVENT_STOPPED_MOVING
-    fsm.add_transition(&state_motor_current_screen, &state_page_two, EVENT_STOPPED_MOVING, NULL);
+    // BUTTON_CLICK
+    fsm.add_transition(&state_battery_voltage_screen, &state_page_two, BUTTON_CLICK, NULL);
+    fsm.add_transition(&state_page_two, &state_motor_current_screen, BUTTON_CLICK, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_battery_voltage_screen, BUTTON_CLICK, NULL);
+    // SERVER_DISCONNECTED -> state_connecting
+    fsm.add_transition(&state_battery_voltage_screen, &state_connecting, SERVER_DISCONNECTED, NULL);
+    fsm.add_transition(&state_page_two, &state_connecting, SERVER_DISCONNECTED, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_connecting, SERVER_DISCONNECTED, NULL);
+    // MOVING -> state_motor_current_screen
+    fsm.add_transition(&state_battery_voltage_screen, &state_motor_current_screen, MOVING, NULL);
+    fsm.add_transition(&state_page_two, &state_motor_current_screen, MOVING, NULL);
+    // STOPPED_MOVING
+    fsm.add_transition(&state_motor_current_screen, &state_page_two, STOPPED_MOVING, NULL);
 
-    //EVENT_BUTTON_BEING_HELD               
-    fsm.add_transition(&state_battery_voltage_screen, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
-    fsm.add_transition(&state_page_two, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
-    fsm.add_transition(&state_motor_current_screen, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
-    fsm.add_transition(&state_button_held_clear_trip_window, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
-    //EVENT_HELD_POWERDOWN_WINDOW
-    fsm.add_transition(&state_button_being_held, &state_button_held_powerdown_window, EVENT_HELD_POWERDOWN_WINDOW, NULL);
-    //EVENT_HELD_CLEAR_TRIP_WINDOW
-    fsm.add_transition(&state_button_held_powerdown_window, &state_button_held_clear_trip_window, EVENT_HELD_CLEAR_TRIP_WINDOW, NULL);
-    // EVENT_SENT_CLEAR_TRIP_ODO
-    fsm.add_transition(&state_button_held_clear_trip_window, &state_page_two, EVENT_SENT_CLEAR_TRIP_ODO, NULL);
+    //BUTTON_BEING_HELD               
+    fsm.add_transition(&state_battery_voltage_screen, &state_button_being_held, BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_page_two, &state_button_being_held, BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_button_being_held, BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_button_held_clear_trip_window, &state_button_being_held, BUTTON_BEING_HELD, NULL);
+    //HELD_POWERDOWN_WINDOW
+    fsm.add_transition(&state_button_being_held, &state_button_held_powerdown_window, HELD_POWERDOWN_WINDOW, NULL);
+    //HELD_CLEAR_TRIP_WINDOW
+    fsm.add_transition(&state_button_held_powerdown_window, &state_button_held_clear_trip_window, HELD_CLEAR_TRIP_WINDOW, NULL);
+    // SENT_CLEAR_TRIP_ODO
+    fsm.add_transition(&state_button_held_clear_trip_window, &state_page_two, SENT_CLEAR_TRIP_ODO, NULL);
     // EVENT_HELD_RELEASED
-    fsm.add_transition(&state_button_being_held, &state_page_two, BUTTON_CLICK_EVENT, NULL);
+    fsm.add_transition(&state_button_being_held, &state_page_two, BUTTON_CLICK, NULL);
     
     fsm.run_machine();
 
@@ -295,10 +304,10 @@ void loop()
     if ( oldMoving != vescdata.moving ) {
       oldMoving = vescdata.moving;
       if ( vescdata.moving ) {
-        fsm.trigger( EVENT_MOVING );
+        fsm.trigger( MOVING );
       }
       else {
-        fsm.trigger( EVENT_STOPPED_MOVING );
+        fsm.trigger( STOPPED_MOVING );
       }
     }
 
@@ -347,7 +356,7 @@ void sendClearTripOdoToMonitor() {
   Serial.printf("sending clear trip odo command to master\n");
   pRemoteCharacteristic->writeValue(CLEAR_TRIP_ODO_COMMAND, sizeof(uint8_t));
   buzzerBuzz();
-  fsm.trigger( EVENT_SENT_CLEAR_TRIP_ODO );
+  fsm.trigger( SENT_CLEAR_TRIP_ODO );
 }
 
 void pureDeepSleep() {
