@@ -56,120 +56,82 @@ enum EventsEnum
   SENT_CLEAR_TRIP_ODO,
   HELD_RELEASED
 } event;
-
+// connecting
 void on_state_connecting_on_enter();
-State state_connecting(
-    &on_state_connecting_on_enter,
-    NULL,
-    NULL);
-
+State state_connecting(&on_state_connecting_on_enter, NULL, NULL);
+void on_state_connecting_on_enter() { lcdMessage("connecting"); }
+// connected
 void on_state_connected_on_enter();
-State state_connected(
-    &on_state_connected_on_enter,
-    NULL,
-    NULL);
-
+State state_connected(&on_state_connected_on_enter, NULL, NULL);
+void on_state_connected_on_enter() { lcdMessage("connected"); }
+// battery_voltage_screen
 void on_state_battery_voltage_screen_on_enter();
 void check_battery_voltage_changed();
 State state_battery_voltage_screen(
     &on_state_battery_voltage_screen_on_enter,
     &check_battery_voltage_changed,
     NULL);
-
+void on_state_battery_voltage_screen_on_enter() { drawBattery(getBatteryPercentage(vescdata.batteryVoltage)); }
+void check_battery_voltage_changed()
+{
+  if (oldvescdata.batteryVoltage != vescdata.batteryVoltage)
+  {
+    oldvescdata.batteryVoltage = vescdata.batteryVoltage;
+    drawBattery( getBatteryPercentage(vescdata.batteryVoltage) );
+  }
+}
+// motor_current_screen
 void on_state_motor_current_screen_on_enter();
 void check_motor_current_changed();
 State state_motor_current_screen(
     &on_state_motor_current_screen_on_enter,
     &check_motor_current_changed,
     NULL);
-
-void check_page_two_data_changed();
-void on_state_page_two_enter();
-State state_page_two(
-    &on_state_page_two_enter,
-    &check_page_two_data_changed,
-    NULL);
-
-void on_button_held_powerdown_window_enter();
-State state_button_held_powerdown_window(
-    &on_button_held_powerdown_window_enter,
-    NULL,
-    NULL);
-
-void on_button_held_clear_trip_window_enter();
-State state_button_held_clear_trip_window(
-    &on_button_held_clear_trip_window_enter,
-    NULL,
-    NULL);
-
-void on_button_being_held_enter();
-State state_button_being_held(
-    &on_button_being_held_enter,
-    NULL,
-    NULL);
-
-Fsm fsm(&state_connecting);
-
-void on_state_connecting_on_enter()
-{
-  Serial.printf("on_state_connecting_on_enter()\n");
-  lcdMessage("connecting");
-}
-void on_state_connected_on_enter()
-{
-  lcdMessage("connected");
-}
-void on_state_battery_voltage_screen_on_enter()
-{
-  drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
-}
-void check_battery_voltage_changed()
-{
-  if (vescdata.batteryVoltage != oldvescdata.batteryVoltage)
-  {
-    oldvescdata = vescdata;
-    drawBattery(getBatteryPercentage(vescdata.batteryVoltage));
-  }
-}
-void on_state_motor_current_screen_on_enter()
-{
-  lcdMotorCurrent(vescdata.motorCurrent);
-}
+void on_state_motor_current_screen_on_enter() { lcdMotorCurrent(vescdata.motorCurrent); }
 void check_motor_current_changed()
 {
-  if (vescdata.motorCurrent != oldvescdata.motorCurrent)
+  if (oldvescdata.motorCurrent != vescdata.motorCurrent)
   {
-    oldvescdata = vescdata;
+    oldvescdata.motorCurrent = vescdata.motorCurrent;
     lcdMotorCurrent(vescdata.motorCurrent);
   }
 }
-void on_state_page_two_enter()
-{
-  lcdPage2(
-      vescdata.ampHours,
-      vescdata.totalAmpHours,
-      vescdata.odometer,
-      vescdata.totalOdometer);
-}
+// state_page_2
+void on_state_page_two_enter();
+void check_page_two_data_changed();
+State state_page_two(
+  &on_state_page_two_enter, 
+  &check_page_two_data_changed, 
+  NULL);
+void on_state_page_two_enter() { lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer); }
 void check_page_two_data_changed()
 {
-  if (vescdata.ampHours != oldvescdata.ampHours)
+  if (oldvescdata.ampHours != vescdata.ampHours)
   {
-    oldvescdata = vescdata;
-    lcdPage2(
-        vescdata.ampHours,
-        vescdata.totalAmpHours,
-        vescdata.odometer,
-        vescdata.totalOdometer);
+    oldvescdata.ampHours = vescdata.ampHours;
+    lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer);
   }
 }
-void on_button_held_powerdown_window_enter() { lcdMessage("powerd down?"); }
+// button_held_powerdown_window
+void on_button_held_powerdown_window_enter() { lcdMessage("power down?"); }
+State state_button_held_powerdown_window(&on_button_held_powerdown_window_enter, NULL, NULL);
+// button_held_clear_trip_window
 void on_button_held_clear_trip_window_enter() { lcdMessage("clear trip?"); }
+State state_button_held_clear_trip_window(&on_button_held_clear_trip_window_enter, NULL, NULL);
+// button_being_held
 void on_button_being_held_enter() { lcdMessage("..."); }
+State state_button_being_held(&on_button_being_held_enter, NULL, NULL);
+
+Fsm fsm(&state_connecting);
 
 void addFsmTransitions() {
+  // SERVER_DISCONNECTED -> state_connecting
+  uint8_t event = SERVER_DISCONNECTED;
+  fsm.add_transition(&state_battery_voltage_screen, &state_connecting, event, NULL);
+  fsm.add_transition(&state_page_two, &state_connecting, event, NULL);
+  fsm.add_transition(&state_motor_current_screen, &state_connecting, event, NULL);
     // SERVER_CONNECTED
-  uint8_t event = SERVER_CONNECTED;
+  event = SERVER_CONNECTED;
   fsm.add_transition(&state_connecting, &state_connected, event, NULL);
   fsm.add_timed_transition(&state_connected, &state_battery_voltage_screen, 1000, NULL);
   // BUTTON_CLICK
@@ -177,11 +139,6 @@ void addFsmTransitions() {
   fsm.add_transition(&state_battery_voltage_screen, &state_page_two, event, NULL);
   fsm.add_transition(&state_page_two, &state_motor_current_screen, event, NULL);
   fsm.add_transition(&state_motor_current_screen, &state_battery_voltage_screen, event, NULL);
-  // SERVER_DISCONNECTED -> state_connecting
-  event = SERVER_DISCONNECTED;
-  fsm.add_transition(&state_battery_voltage_screen, &state_connecting, event, NULL);
-  fsm.add_transition(&state_page_two, &state_connecting, event, NULL);
-  fsm.add_transition(&state_motor_current_screen, &state_connecting, event, NULL);
   // MOVING -> state_motor_current_screen
   event = MOVING;
   fsm.add_transition(&state_battery_voltage_screen, &state_motor_current_screen, event, NULL);
@@ -191,6 +148,7 @@ void addFsmTransitions() {
   fsm.add_transition(&state_motor_current_screen, &state_page_two, event, NULL);
   //BUTTON_BEING_HELD
   event = BUTTON_BEING_HELD;
+  fsm.add_transition(&state_connecting, &state_button_being_held, event, NULL);
   fsm.add_transition(&state_battery_voltage_screen, &state_button_being_held, event, NULL);
   fsm.add_transition(&state_page_two, &state_button_being_held, event, NULL);
   fsm.add_transition(&state_motor_current_screen, &state_button_being_held, event, NULL);
@@ -335,9 +293,9 @@ void loop()
     serverConnected = bleConnectToServer();
   }
 
-  if (oldMoving != vescdata.moving)
+  if (oldvescdata.moving != vescdata.moving)
   {
-    oldMoving = vescdata.moving;
+    oldvescdata.moving = vescdata.moving;
     if (vescdata.moving)
     {
       fsm.trigger(MOVING);
@@ -362,15 +320,6 @@ void buzzerBuzz()
     digitalWrite(BuzzerPin, LOW);
     delay(1);
   }
-}
-
-void sendToMaster()
-{
-  Serial.printf("sending to master\n");
-  char buff[6];
-  ltoa(millis(), buff, 10);
-  pRemoteCharacteristic->writeValue(buff, sizeof(buff));
-  buzzerBuzz();
 }
 
 void setupPeripherals()
