@@ -17,17 +17,7 @@
 #define LED_OFF LOW
 
 /* ---------------------------------------------- */
-#define MODE_DISPLAY_SLEEPING   0
-#define MODE_DISPLAY_TO_SLEEP   1
-#define MODE_WAKE_DISPLAY       2
-#define MODE_BATTERY_VOLTAGE    3
-#define MODE_MOTOR_CURRENT      4
-#define MODE_CONNECTING         5
-#define MODE_CONNECTED          6
-#define MODE_AMP_HOURS          7
-#define MODE_DO_NOTHING         99
 
-uint8_t display_mode = MODE_BATTERY_VOLTAGE;
 static boolean serverConnected = false;
 
 
@@ -36,28 +26,23 @@ static boolean serverConnected = false;
 #define STATE_CONNECTED       2
 #define STATE_BATTERY_VOLTAGE_SCREEN  3
 
-// long onConnectedEnterTime = 0;
-
 struct VESC_DATA
 {
   float batteryVoltage;
   float motorCurrent;
   bool moving;
-  bool vescOnline;
   float ampHours;
   float totalAmpHours;
   float odometer; // in kilometers
+  float totalOdometer;
   uint8_t status;
 };
 VESC_DATA vescdata, oldvescdata;
 
-#define STATUS_BIT_POWER_DOWN_NORMAL 0
-#define STATUS_BIT_CLEARED_TRIP      1
-
+bool oldMoving = false;
 
 #include "utils.h"
 #include "display.h"
-
 
 void on_state_connecting_on_enter();
 void on_state_connected_on_enter();
@@ -67,10 +52,21 @@ void check_battery_voltage_changed();
 void check_page_two_data_changed();
 void on_state_motor_current_screen_on_enter();
 void check_motor_current_changed();
+void on_button_held_powerdown_window_enter();
+void on_button_held_clear_trip_window_enter();
+void on_button_being_held_enter();
+
 
 #define BUTTON_CLICK_EVENT  0
 #define EVENT_SERVER_CONNECTED  1
 #define EVENT_SERVER_DISCONNECTED 2
+#define EVENT_MOVING 4
+#define EVENT_STOPPED_MOVING                  5
+#define EVENT_HELD_POWERDOWN_WINDOW       6
+#define EVENT_HELD_CLEAR_TRIP_WINDOW  7
+#define EVENT_BUTTON_BEING_HELD               8
+#define EVENT_SENT_CLEAR_TRIP_ODO       9
+#define EVENT_HELD_RELEASED             10
 
 State state_connecting(
   &on_state_connecting_on_enter, 
@@ -92,6 +88,21 @@ State state_page_two(
   &on_state_page_two_enter,
   &check_page_two_data_changed,
   NULL);
+State state_button_held_powerdown_window(
+  &on_button_held_powerdown_window_enter,
+  NULL,
+  NULL
+);
+State state_button_held_clear_trip_window(
+  &on_button_held_clear_trip_window_enter,
+  NULL,
+  NULL
+);
+State state_button_being_held(
+  &on_button_being_held_enter,
+  NULL,
+  NULL
+);
 Fsm fsm(&state_connecting);
 
 void on_state_connecting_on_enter() {
@@ -120,14 +131,27 @@ void check_motor_current_changed() {
   }
 }
 void on_state_page_two_enter() {
-  lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+  lcdPage2(
+    vescdata.ampHours, 
+    vescdata.totalAmpHours, 
+    vescdata.odometer, 
+    vescdata.totalOdometer);
 }
 void check_page_two_data_changed() {
   if (vescdata.ampHours != oldvescdata.ampHours) {
     oldvescdata = vescdata;
-    lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer);
+    lcdPage2(
+      vescdata.ampHours, 
+      vescdata.totalAmpHours, 
+      vescdata.odometer, 
+      vescdata.totalOdometer);
   }
 }
+void on_button_held_powerdown_window_enter() { lcdMessage("powerd down?"); }
+void on_button_held_clear_trip_window_enter() { lcdMessage("clear trip?"); }
+void on_button_being_held_enter() { lcdMessage("..."); }
+
+/* ---------------------------------------------- */
 
 void bleConnected() {
   Serial.printf("serverConnected! \n");
@@ -142,7 +166,7 @@ void bleDisconnected() {
 }
 
 void bleReceivedNotify() {
-  Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
+  //Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
 }
 
 #include "bleClient.h"
@@ -162,15 +186,26 @@ void listener_Button(int eventCode, int eventPin, int eventParam);
 myPushButton button(BtnPin, PULLUP, OFFSTATE, listener_Button);
 void listener_Button(int eventCode, int eventPin, int eventParam) {
     
+  bool sleepTimeSlot = eventParam >= 2 && eventParam <= 3;
+  bool clearTripOdoSlot = eventParam >= 4 && eventParam <= 5;
+
 	switch (eventCode) {
 		case button.EV_BUTTON_PRESSED:
 			Serial.println("EV_BUTTON_PRESSED");
 			break;
 		case button.EV_RELEASED:
-			Serial.println("EV_RELEASED");
-      if (eventParam >= 2) {
+			Serial.printf("EV_RELEASED %d\n", eventParam);
+      if ( sleepTimeSlot ) {
         deepSleep();
+        break;
       }      
+      if ( clearTripOdoSlot ) {
+        sendClearTripOdoToMonitor();
+        break;
+      }
+      else if (eventParam < 2) {
+        fsm.trigger( BUTTON_CLICK_EVENT );
+      }
       else {
         fsm.trigger( BUTTON_CLICK_EVENT );
       }
@@ -178,11 +213,20 @@ void listener_Button(int eventCode, int eventPin, int eventParam) {
 		case button.EV_DOUBLETAP:
 			break;
 		case button.EV_HELD_SECONDS:
-      if (eventParam >= 2) {
-          lcdMessage("release!");
+      Serial.printf("HELD %d seconds \n", eventParam);
+      if ( sleepTimeSlot ) {
+        Serial.printf("EVENT_HELD_POWERDOWN_WINDOW \n");
+        fsm.trigger( EVENT_HELD_POWERDOWN_WINDOW );
+          // lcdMessage("release!");
+      }
+      else if ( clearTripOdoSlot ) {
+        Serial.printf("EVENT_HELD_CLEAR_TRIP_WINDOW \n");
+        fsm.trigger( EVENT_HELD_CLEAR_TRIP_WINDOW );
       }
       else {
-          lcdMessage("powering down");
+        Serial.printf("EVENT_BUTTON_BEING_HELD \n");
+        fsm.trigger( EVENT_BUTTON_BEING_HELD );
+          // lcdMessage("powering down");
       }
 			break;
     }
@@ -203,10 +247,29 @@ void setup() {
     fsm.add_transition(&state_battery_voltage_screen, &state_page_two, BUTTON_CLICK_EVENT, NULL);
     fsm.add_transition(&state_page_two, &state_motor_current_screen, BUTTON_CLICK_EVENT, NULL);
     fsm.add_transition(&state_motor_current_screen, &state_battery_voltage_screen, BUTTON_CLICK_EVENT, NULL);
-    // EVENT_SERVER_DISCONNECTED
+    // EVENT_SERVER_DISCONNECTED -> state_connecting
     fsm.add_transition(&state_battery_voltage_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
     fsm.add_transition(&state_page_two, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
     fsm.add_transition(&state_motor_current_screen, &state_connecting, EVENT_SERVER_DISCONNECTED, NULL);
+    // EVENT_MOVING -> state_motor_current_screen
+    fsm.add_transition(&state_battery_voltage_screen, &state_motor_current_screen, EVENT_MOVING, NULL);
+    fsm.add_transition(&state_page_two, &state_motor_current_screen, EVENT_MOVING, NULL);
+    // EVENT_STOPPED_MOVING
+    fsm.add_transition(&state_motor_current_screen, &state_page_two, EVENT_STOPPED_MOVING, NULL);
+
+    //EVENT_BUTTON_BEING_HELD               
+    fsm.add_transition(&state_battery_voltage_screen, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_page_two, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_motor_current_screen, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
+    fsm.add_transition(&state_button_held_clear_trip_window, &state_button_being_held, EVENT_BUTTON_BEING_HELD, NULL);
+    //EVENT_HELD_POWERDOWN_WINDOW
+    fsm.add_transition(&state_button_being_held, &state_button_held_powerdown_window, EVENT_HELD_POWERDOWN_WINDOW, NULL);
+    //EVENT_HELD_CLEAR_TRIP_WINDOW
+    fsm.add_transition(&state_button_held_powerdown_window, &state_button_held_clear_trip_window, EVENT_HELD_CLEAR_TRIP_WINDOW, NULL);
+    // EVENT_SENT_CLEAR_TRIP_ODO
+    fsm.add_transition(&state_button_held_clear_trip_window, &state_page_two, EVENT_SENT_CLEAR_TRIP_ODO, NULL);
+    // EVENT_HELD_RELEASED
+    fsm.add_transition(&state_button_being_held, &state_page_two, BUTTON_CLICK_EVENT, NULL);
     
     fsm.run_machine();
 
@@ -227,6 +290,16 @@ void loop()
 
     if ( serverConnected == false ) {
       serverConnected = bleConnectToServer();
+    }
+
+    if ( oldMoving != vescdata.moving ) {
+      oldMoving = vescdata.moving;
+      if ( vescdata.moving ) {
+        fsm.trigger( EVENT_MOVING );
+      }
+      else {
+        fsm.trigger( EVENT_STOPPED_MOVING );
+      }
     }
 
     fsm.run_machine();
@@ -262,10 +335,19 @@ void setupPeripherals() {
 
 
 void deepSleep() {
-    digitalWrite(LedPin, LED_OFF);
-    u8g2.setPowerSave(1);
-    delay(500);
-    pureDeepSleep();
+  digitalWrite(LedPin, LED_OFF);
+  u8g2.setPowerSave(1);
+  delay(500);
+  pureDeepSleep();
+}
+
+#define CLEAR_TRIP_ODO_COMMAND  99
+
+void sendClearTripOdoToMonitor() {
+  Serial.printf("sending clear trip odo command to master\n");
+  pRemoteCharacteristic->writeValue(CLEAR_TRIP_ODO_COMMAND, sizeof(uint8_t));
+  buzzerBuzz();
+  fsm.trigger( EVENT_SENT_CLEAR_TRIP_ODO );
 }
 
 void pureDeepSleep() {

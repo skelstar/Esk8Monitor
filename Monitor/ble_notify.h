@@ -12,16 +12,14 @@ bool clientConnected = false;
 
 class MyServerCallbacks: public BLECharacteristicCallbacks {
 	// receive
+
+  #define CLEAR_TRIP_ODO_COMMAND  99
+
+
   void onWrite(BLECharacteristic *pCharacteristic) {
     std::string value = pCharacteristic->getValue();
-    if (value.length() > 0) {
-      Serial.println("*********");
-      Serial.print("New value: ");
-      for (int i = 0; i < value.length(); i++) {
-        Serial.print(value[i]);
-      }
-      Serial.println();
-      Serial.println("*********");
+    if (value.length() > 0 && value[0] == CLEAR_TRIP_ODO_COMMAND) {
+      clearTripMeterAndOdometer();
     }
   }
 
