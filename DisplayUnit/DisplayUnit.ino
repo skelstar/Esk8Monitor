@@ -38,8 +38,6 @@ struct VESC_DATA
 };
 VESC_DATA vescdata, oldvescdata;
 
-bool oldMoving = false;
-
 #include "utils.h"
 #include "display.h"
 
@@ -57,21 +55,19 @@ enum EventsEnum
   HELD_RELEASED
 } event;
 // connecting
-void on_state_connecting_on_enter();
-State state_connecting(&on_state_connecting_on_enter, NULL, NULL);
-void on_state_connecting_on_enter() { lcdMessage("connecting"); }
+void enter_connecting() { lcdMessage("connecting"); }
+State state_connecting(&enter_connecting, NULL, NULL);
 // connected
-void on_state_connected_on_enter();
-State state_connected(&on_state_connected_on_enter, NULL, NULL);
-void on_state_connected_on_enter() { lcdMessage("connected"); }
+void enter_connected() { lcdMessage("connected"); }
+State state_connected(&enter_connected, NULL, NULL);
 // battery_voltage_screen
-void on_state_battery_voltage_screen_on_enter();
+void enter_battery_voltage_screen();
 void check_battery_voltage_changed();
 State state_battery_voltage_screen(
-    &on_state_battery_voltage_screen_on_enter,
+    &enter_battery_voltage_screen,
     &check_battery_voltage_changed,
     NULL);
-void on_state_battery_voltage_screen_on_enter() { drawBattery(getBatteryPercentage(vescdata.batteryVoltage)); }
+void enter_battery_voltage_screen() { drawBattery(getBatteryPercentage(vescdata.batteryVoltage)); }
 void check_battery_voltage_changed()
 {
   if (oldvescdata.batteryVoltage != vescdata.batteryVoltage)
@@ -81,13 +77,13 @@ void check_battery_voltage_changed()
   }
 }
 // motor_current_screen
-void on_state_motor_current_screen_on_enter();
+void enter_motor_current_screen();
 void check_motor_current_changed();
 State state_motor_current_screen(
-    &on_state_motor_current_screen_on_enter,
+    &enter_motor_current_screen,
     &check_motor_current_changed,
     NULL);
-void on_state_motor_current_screen_on_enter() { lcdMotorCurrent(vescdata.motorCurrent); }
+void enter_motor_current_screen() { lcdMotorCurrent(vescdata.motorCurrent); }
 void check_motor_current_changed()
 {
   if (oldvescdata.motorCurrent != vescdata.motorCurrent)
@@ -97,13 +93,13 @@ void check_motor_current_changed()
   }
 }
 // state_page_2
-void on_state_page_two_enter();
+void enter_page_two();
 void check_page_two_data_changed();
 State state_page_two(
-  &on_state_page_two_enter, 
+  &enter_page_two, 
   &check_page_two_data_changed, 
   NULL);
-void on_state_page_two_enter() { lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer); }
+void enter_page_two() { lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer); }
 void check_page_two_data_changed()
 {
   if (oldvescdata.ampHours != vescdata.ampHours)
@@ -113,14 +109,14 @@ void check_page_two_data_changed()
   }
 }
 // button_held_powerdown_window
-void on_button_held_powerdown_window_enter() { lcdMessage("power down?"); }
-State state_button_held_powerdown_window(&on_button_held_powerdown_window_enter, NULL, NULL);
+void enter_button_held_powerdown_window() { lcdMessage("power down?"); }
+State state_button_held_powerdown_window(&enter_button_held_powerdown_window, NULL, NULL);
 // button_held_clear_trip_window
-void on_button_held_clear_trip_window_enter() { lcdMessage("clear trip?"); }
-State state_button_held_clear_trip_window(&on_button_held_clear_trip_window_enter, NULL, NULL);
+void enter_button_held_clear_trip_window() { lcdMessage("clear trip?"); }
+State state_button_held_clear_trip_window(&enter_button_held_clear_trip_window, NULL, NULL);
 // button_being_held
-void on_button_being_held_enter() { lcdMessage("..."); }
-State state_button_being_held(&on_button_being_held_enter, NULL, NULL);
+void enter_button_being_held() { lcdMessage("..."); }
+State state_button_being_held(&enter_button_being_held, NULL, NULL);
 
 Fsm fsm(&state_connecting);
 
