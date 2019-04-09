@@ -34,6 +34,8 @@ VESC_DATA vescdata;
 #define STATUS_BIT_POWER_DOWN_NORMAL 0
 #define STATUS_BIT_CLEARED_TRIP      1
 
+float initial_ampHours = 0.0; // get from first packet from vesc
+float initial_odometer = 0.0;
 float totalAmpHours;
 float totalOdometer;
 
@@ -73,7 +75,7 @@ void clearTripMeterAndOdometer();
 
 Scheduler runner;
 
-bool gotFirstVescPacket = false;
+bool handledFirstVescPacket = false;
 float lastStableVoltsRead = 0.0;
 bool alreadyStoreValues = false;
 long lastReport = 0;
@@ -115,16 +117,14 @@ void tGetFromVESC_callback()
   }
 }
 //------------------------------------------------------------------
-void handleFirstPacket() {
-	if ( gotFirstVescPacket == false ) {
-		gotFirstVescPacket = true;
+void handleIfFirstVescPacket() {
+	if ( handledFirstVescPacket == false ) {
+		handledFirstVescPacket = true;
+    Serial.printf("handledFirstVescPacket! (%.1f) /n", vescdata.ampHours);
 		// make sure ampHours == false
 		if ( hadPoweredDownNormally() ) {
-			vescdata.odometer = 0;
-			if (vescdata.ampHours > 0.0) {
-				// vesc still has ampHours consumed... remove from totalAmpHours
-				totalAmpHours -= vescdata.ampHours;
-			}
+			initial_odometer = vescdata.odometer;
+      initial_ampHours = vescdata.ampHours;
 		}
 	}
 }
@@ -145,12 +145,17 @@ void handlePoweringDown()
   {
     alreadyStoreValues = true;
     // store total amp hours, total odometer
-    float updatedTotalAmpHours = totalAmpHours + vescdata.ampHours;
+
+    float updatedTotalAmpHours = totalAmpHours + vescdata.ampHours - initial_ampHours;
     storeFloat( STORE_TOTAL_AMP_HOURS, updatedTotalAmpHours );
-    float updatedTotalOdometer = totalOdometer + vescdata.odometer;
+    float updatedTotalOdometer = totalOdometer + vescdata.odometer - initial_odometer;
     storeFloat( STORE_TOTAL_ODOMETER, updatedTotalOdometer );
     storeUInt8(STORE_POWERED_DOWN, 1); // true
-    Serial.printf("Powering down. Stored totalAmpHours: %.1f \n", updatedTotalAmpHours);
+    Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", updatedTotalAmpHours, vescdata.ampHours);
+    handledFirstVescPacket = false;
+  }
+  else {
+    Serial.printf("-");
   }
   return;
 }
@@ -235,11 +240,11 @@ bool getVescValues()
     vescdata.motorCurrent = vesc_comm_get_motor_current(vesc_packet);
     // amphours
     vescdata.ampHours = vesc_comm_get_amphours_discharged(vesc_packet);
-    vescdata.totalAmpHours = vescdata.ampHours + totalAmpHours;
+    vescdata.totalAmpHours = vescdata.ampHours + totalAmpHours - initial_ampHours;;
     // odometer
     int32_t distanceMeters = rotations_to_meters(vesc_comm_get_tachometer(vesc_packet) / 6);
     vescdata.odometer = distanceMeters / 1000.0;
-    vescdata.totalOdometer = vescdata.odometer + totalOdometer;
+    vescdata.totalOdometer = vescdata.odometer + totalOdometer - initial_odometer;
     // vescdata.vescOnline = true;
   }
   else

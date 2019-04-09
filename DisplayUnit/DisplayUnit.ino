@@ -80,33 +80,31 @@ enum EventsEnum
   SENT_CLEAR_TRIP_ODO,
   HELD_RELEASED
 } event;
+
 // connecting
 void enter_connecting() { lcdMessage("connecting"); }
 State state_connecting(&enter_connecting, NULL, NULL);
 // connected
 void enter_connected() { lcdMessage("connected"); }
 State state_connected(&enter_connected, NULL, NULL);
+//-------------------------------
+
 // battery_voltage_screen
-void enter_battery_voltage_screen();
-void check_battery_voltage_changed();
-State state_battery_voltage_screen(
-    &enter_battery_voltage_screen,
-    &check_battery_voltage_changed,
-    NULL);
-void enter_battery_voltage_screen() { drawBattery(getBatteryPercentage(vescdata.batteryVoltage)); }
+void enter_battery_voltage_screen() { 
+  drawBattery( getBatteryPercentage(vescdata.batteryVoltage) ); 
+}
 void check_battery_voltage_changed()
 {
   if ( valueChanged(CHECK_BATT_VOLTS) ) {
     drawBattery( getBatteryPercentage(vescdata.batteryVoltage) );
   }
 }
-// motor_current_screen
-void enter_motor_current_screen();
-void check_motor_current_changed();
-State state_motor_current_screen(
-    &enter_motor_current_screen,
-    &check_motor_current_changed,
+State state_battery_voltage_screen(
+    &enter_battery_voltage_screen,
+    &check_battery_voltage_changed,
     NULL);
+//-------------------------------
+// motor_current_screen
 void enter_motor_current_screen() { 
   lcdMovingScreen(vescdata.motorCurrent); 
 }
@@ -116,6 +114,11 @@ void check_motor_current_changed()
     lcdMovingScreen(vescdata.motorCurrent);
   }
 }
+State state_motor_current_screen(
+    &enter_motor_current_screen,
+    &check_motor_current_changed,
+    NULL);
+//-------------------------------
 // state_page_2
 void enter_page_two();
 void check_page_two_data_changed();
@@ -130,12 +133,15 @@ void check_page_two_data_changed()
     lcdPage2(vescdata.ampHours, vescdata.totalAmpHours, vescdata.odometer, vescdata.totalOdometer);
   }
 }
+//-------------------------------
 // button_held_powerdown_window
 void enter_button_held_powerdown_window() { lcdMessage("power down?"); }
 State state_button_held_powerdown_window(&enter_button_held_powerdown_window, NULL, NULL);
+//-------------------------------
 // button_held_clear_trip_window
 void enter_button_held_clear_trip_window() { lcdMessage("clear trip?"); }
 State state_button_held_clear_trip_window(&enter_button_held_clear_trip_window, NULL, NULL);
+//-------------------------------
 // button_being_held
 void enter_button_being_held() { lcdMessage("..."); }
 State state_button_being_held(&enter_button_being_held, NULL, NULL);
