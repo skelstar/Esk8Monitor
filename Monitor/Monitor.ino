@@ -28,7 +28,6 @@ struct VESC_DATA
   float totalAmpHours;
   float odometer;
   float totalOdometer;
-  uint8_t status;
 };
 VESC_DATA vescdata;
 
@@ -75,11 +74,8 @@ void clearTripMeterAndOdometer();
 Scheduler runner;
 
 bool gotFirstVescPacket = false;
-float lastVoltsRead = 0.0;
 float lastStableVoltsRead = 0.0;
-bool interimUpdated = false; // when not moving
 bool alreadyStoreValues = false;
-bool appendAmpHoursOnPowerDown = false;
 long lastReport = 0;
 
 void tGetFromVESC_callback();
@@ -99,17 +95,8 @@ void tGetFromVESC_callback()
   }
   else
   {
-    if ( gotFirstVescPacket == false ) {
-      gotFirstVescPacket = true;
-      // make sure ampHours == false
-      if ( poweredDownNormally() ) {
-        vescdata.odometer = 0;
-        if (vescdata.ampHours > 0.0) {
-          // vesc still has ampHours consumed... remove from totalAmpHours
-          totalAmpHours -= vescdata.ampHours;
-        }
-      }
-    }
+		handleIfFirstVescPacket();
+
     sendDataToClient();
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0;
@@ -126,6 +113,20 @@ void tGetFromVESC_callback()
       handleBoardMoving();
     }
   }
+}
+//------------------------------------------------------------------
+void handleFirstPacket() {
+	if ( gotFirstVescPacket == false ) {
+		gotFirstVescPacket = true;
+		// make sure ampHours == false
+		if ( hadPoweredDownNormally() ) {
+			vescdata.odometer = 0;
+			if (vescdata.ampHours > 0.0) {
+				// vesc still has ampHours consumed... remove from totalAmpHours
+				totalAmpHours -= vescdata.ampHours;
+			}
+		}
+	}
 }
 
 void handleBoardNotMoving()
@@ -162,11 +163,8 @@ void clearTripMeterAndOdometer() {
   Serial.printf("clearTripMeterAndOdometer() \n");
 }
 
-bool poweredDownNormally() {
+bool hadPoweredDownNormally() {
   bool normal = recallUInt8(STORE_POWERED_DOWN) == 1;
-  if (normal) {
-    bitSet(vescdata.status, STATUS_BIT_POWER_DOWN_NORMAL);
-  }
   storeUInt8(STORE_POWERED_DOWN, 0);
   return normal;
 }
@@ -202,13 +200,13 @@ void setup()
   debug.setFilter(STARTUP | DEBUG | COMMUNICATION); // | COMMUNICATION | HARDWARE );
   debug.print(STARTUP, "Ready!\n");
 
+  initData();
+
   runner.startNow();
   runner.addTask( tGetFromVESC );
   tGetFromVESC.enable();
 
   setupBLE();
-
-  initData();
 }
 
 //*************************************************************
@@ -221,7 +219,6 @@ void loop()
 bool controllerOnline = true;
 
 void initData() {
-  vescdata.status = 0;
   totalAmpHours = recallFloat( STORE_TOTAL_AMP_HOURS );
   totalOdometer = recallFloat( STORE_TOTAL_ODOMETER );
 }

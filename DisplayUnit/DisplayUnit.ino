@@ -38,7 +38,6 @@ struct VESC_DATA
   float totalAmpHours;
   float odometer; // in kilometers
   float totalOdometer;
-  uint8_t status;
 };
 VESC_DATA vescdata, oldvescdata;
 
@@ -203,7 +202,7 @@ void bleDisconnected()
 
 void bleReceivedNotify()
 {
-  //Serial.printf("Received: %.1fAh %.1fkm \n", vescdata.ampHours, vescdata.odometer);
+  Serial.printf("Received: %.1fV %.1fAh \n", vescdata.batteryVoltage, vescdata.ampHours);
 }
 
 #include "bleClient.h"
