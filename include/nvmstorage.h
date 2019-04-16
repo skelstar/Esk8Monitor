@@ -1,5 +1,5 @@
 #ifndef Preferences_h
-#include <Preferences.h>;
+#include <Preferences.h>
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/Preferences/src/Preferences.h
 #endif
 
