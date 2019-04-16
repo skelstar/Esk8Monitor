@@ -179,8 +179,6 @@ void clearTripMeterAndOdometer() {
 
 #include "ble_notify.h"
 
-/**************************************************************/
-
 void vescOfflineCallback()
 {
 }
@@ -225,14 +223,14 @@ void tGetFromVESC_callback()
       handleBoardMoving();
     }
   }
-}//--------------------------------------------------------------------------------
+}
+//*************************************************************
 
 void setup()
 {
   Serial.begin(9600);
 
   vesc.init(VESC_UART_BAUDRATE);
-
 
   debug.init();
   debug.addOption(STARTUP, "STARTUP");
@@ -253,9 +251,7 @@ void setup()
 
   setupBLE();
 }
-
-//*************************************************************
-
+//--------------------------------------------------------------------------------
 void loop()
 {
   runner.execute();
