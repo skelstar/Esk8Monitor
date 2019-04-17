@@ -2,6 +2,7 @@
 #include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
+#include <SoftwareSerial.h>
 
 /*--------------------------------------------------------------------------------*/
 
@@ -65,6 +66,15 @@ float totalOdometer;
 debugHelper debug;
 
 vesc_comms vesc;
+
+
+#ifndef RX
+#define RX 21
+#endif
+#ifndef TX
+#define TX 22
+#endif
+SoftwareSerial vescSS(RX, TX);
 
 bool handledFirstVescPacket = false;
 float lastStableVoltsRead = 0.0;
@@ -229,6 +239,8 @@ void tGetFromVESC_callback()
 void setup()
 {
   Serial.begin(9600);
+
+  vescSS.begin(9600);
 
   vesc.init(VESC_UART_BAUDRATE);
 
