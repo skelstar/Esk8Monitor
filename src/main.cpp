@@ -179,6 +179,7 @@ void handlePoweringDown()
   return;
 }
 
+// gets called from ble_notify.h
 void clearTripMeterAndOdometer() {
   storeFloat( STORE_TOTAL_AMP_HOURS, 0 );
   storeFloat( STORE_TOTAL_ODOMETER, 0 );
