@@ -1,4 +1,3 @@
-#include <debugHelper.h>
 #include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
@@ -53,16 +52,6 @@ float totalOdometer;
 #include "nvmstorage.h"
 
 //--------------------------------------------------------------------------------
-
-#define STARTUP 1 << 0
-#define DEBUG 1 << 1
-#define COMMUNICATION 1 << 2
-#define HARDWARE 1 << 3
-// #define SOMETHING 	1 << 4
-#define ONLINE_STATUS 1 << 5
-#define LOGGING 1 << 6
-
-debugHelper debug;
 
 vesc_comms vesc;
 
@@ -163,9 +152,6 @@ void handlePoweringDown()
     Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", updatedTotalAmpHours, vescdata.ampHours);
     handledFirstVescPacket = false;
   }
-  else {
-    Serial.printf("-");
-  }
   return;
 }
 
@@ -189,6 +175,8 @@ void vescOnlineCallback()
 
 /**************************************************************/
 
+float oldBattVoltage = 0.0;
+
 void tGetFromVESC_callback();
 Task tGetFromVESC(GET_FROM_VESC_INTERVAL, TASK_FOREVER, &tGetFromVESC_callback);
 void tGetFromVESC_callback()
@@ -209,7 +197,7 @@ void tGetFromVESC_callback()
 
     sendDataToClient();
 
-    bool vescPoweringDown = vescdata.batteryVoltage < 32.0;
+    bool vescPoweringDown = vescdata.batteryVoltage < 32.0 && vescdata.batteryVoltage > 10;
     if (vescPoweringDown)
     {
       handlePoweringDown();
@@ -228,20 +216,9 @@ void tGetFromVESC_callback()
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   vesc.init(VESC_UART_BAUDRATE);
-
-  debug.init();
-  debug.addOption(STARTUP, "STARTUP");
-  debug.addOption(DEBUG, "DEBUG");
-  debug.addOption(HARDWARE, "HARDWARE");
-  debug.addOption(COMMUNICATION, "COMMUNICATION");
-  debug.addOption(ONLINE_STATUS, "ONLINE_STATUS");
-  debug.addOption(LOGGING, "LOGGING");
-  //debug.setFilter( STARTUP | COMMUNICATION | ONLINE_STATUS | TIMING );
-  debug.setFilter(STARTUP | DEBUG | COMMUNICATION); // | COMMUNICATION | HARDWARE );
-  debug.print(STARTUP, "Ready!\n");
 
   initData();
 
