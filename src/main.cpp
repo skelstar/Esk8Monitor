@@ -1,8 +1,9 @@
-#include <debugHelper.h>
-#include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
 #include <SoftwareSerial.h>
+#include <vesc_comms.h>
+
+// https://raw.githubusercontent.com/LilyGO/TTGO-TS/master/Image/TS%20V1.0.jpg
 
 /*--------------------------------------------------------------------------------*/
 
@@ -43,7 +44,7 @@ float totalOdometer;
 //--------------------------------------------------------------
 // #define 	VESC_UART_RX		16		// orange
 // #define 	VESC_UART_TX		17		// green
-#define VESC_UART_BAUDRATE 115200
+#define VESC_UART_BAUDRATE 19200  // 57600 //115200
 
 #define STORE_NAMESPACE "data"
 #define STORE_TOTAL_AMP_HOURS "totalAmpHours"
@@ -55,26 +56,10 @@ float totalOdometer;
 
 //--------------------------------------------------------------------------------
 
-#define STARTUP 1 << 0
-#define DEBUG 1 << 1
-#define COMMUNICATION 1 << 2
-#define HARDWARE 1 << 3
-// #define SOMETHING 	1 << 4
-#define ONLINE_STATUS 1 << 5
-#define LOGGING 1 << 6
-
-debugHelper debug;
-
 vesc_comms vesc;
 
 
-#ifndef RX
-#define RX 21
-#endif
-#ifndef TX
-#define TX 22
-#endif
-SoftwareSerial vescSS(RX, TX);
+// SoftwareSerial vescSS(RX, TX);
 
 bool handledFirstVescPacket = false;
 float lastStableVoltsRead = 0.0;
@@ -208,6 +193,7 @@ void tGetFromVESC_callback()
 
   if (vescOnline == false)
   {
+    Serial.printf("VESC not responding!\n");
     // vesc offline
     if (millis() - lastReport > 5000)
     {
@@ -216,6 +202,7 @@ void tGetFromVESC_callback()
   }
   else
   {
+    Serial.printf("batt volts: %.1f \n", vescdata.batteryVoltage);
 		handleIfFirstVescPacket();
 
     sendDataToClient();
@@ -239,22 +226,11 @@ void tGetFromVESC_callback()
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-  vescSS.begin(9600);
+  // vescSS.begin(9600);
 
   vesc.init(VESC_UART_BAUDRATE);
-
-  debug.init();
-  debug.addOption(STARTUP, "STARTUP");
-  debug.addOption(DEBUG, "DEBUG");
-  debug.addOption(HARDWARE, "HARDWARE");
-  debug.addOption(COMMUNICATION, "COMMUNICATION");
-  debug.addOption(ONLINE_STATUS, "ONLINE_STATUS");
-  debug.addOption(LOGGING, "LOGGING");
-  //debug.setFilter( STARTUP | COMMUNICATION | ONLINE_STATUS | TIMING );
-  debug.setFilter(STARTUP | DEBUG | COMMUNICATION); // | COMMUNICATION | HARDWARE );
-  debug.print(STARTUP, "Ready!\n");
 
   initData();
 
