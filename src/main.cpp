@@ -1,8 +1,12 @@
-#include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
 #include <SoftwareSerial.h>
 #include <vesc_comms.h>
+#include <Adafruit_GFX.h>                                  // Core graphics library
+#include <Adafruit_ST7735.h>     
+// #include <Ucglib.h>  
+#include "display_gfx.h"
+#include <SPI.h>
 
 // https://raw.githubusercontent.com/LilyGO/TTGO-TS/master/Image/TS%20V1.0.jpg
 
@@ -51,6 +55,7 @@ float totalOdometer;
 #define STORE_POWERED_DOWN "poweredDown"
 #define STORE_LAST_VOLTAGE_READ "lastVolts"
 
+
 #include "nvmstorage.h"
 
 //--------------------------------------------------------------------------------
@@ -62,6 +67,7 @@ bool handledFirstVescPacket = false;
 float lastStableVoltsRead = 0.0;
 bool alreadyStoreValues = false;
 long lastReport = 0;
+
 
 //--------------------------------------------------------------
 bool controllerOnline = true;
@@ -185,6 +191,7 @@ void tGetFromVESC_callback();
 Task tGetFromVESC(GET_FROM_VESC_INTERVAL, TASK_FOREVER, &tGetFromVESC_callback);
 void tGetFromVESC_callback()
 {
+  float battVoltsOld = vescdata.batteryVoltage;
   bool vescOnline = getVescValues() == true;
 
   if (vescOnline == false)
@@ -201,7 +208,14 @@ void tGetFromVESC_callback()
     Serial.printf("batt volts: %.1f \n", vescdata.batteryVoltage);
 		handleIfFirstVescPacket();
 
-    sendDataToClient();
+    //sendDataToClient();
+		bool updateDisplay = battVoltsOld != vescdata.batteryVoltage;
+		if ( updateDisplay ) {
+      drawBatteryTopScreen( vescdata.batteryVoltage );
+      drawAmpHoursUsed( vescdata.ampHours );
+      drawTotalAmpHours( recallFloat(STORE_TOTAL_AMP_HOURS) );
+      drawTripMeter( vescdata.odometer );
+    }
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0 && vescdata.batteryVoltage > 10;
     if (vescPoweringDown)
@@ -228,13 +242,17 @@ void setup()
 
   vesc.init(VESC_UART_BAUDRATE);
 
+  setupDisplay();
+
   initData();
 
   runner.startNow();
   runner.addTask( tGetFromVESC );
   tGetFromVESC.enable();
 
-  setupBLE();
+  // setupBLE();
+
+  drawBatteryTopScreen(vescdata.batteryVoltage);
 }
 //--------------------------------------------------------------------------------
 void loop()

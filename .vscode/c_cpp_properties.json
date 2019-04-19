@@ -65,19 +65,16 @@
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/esp-face",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/fb_gfx",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/cores/esp32",
-<<<<<<< HEAD
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/variants/esp32",
-                "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/TaskScheduler_ID721/src",
-                "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/VESC_Comms",
-=======
-                "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/variants/pico32",
+                "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/Adafruit GFX Library_ID13",
                 "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/EspSoftwareSerial_ID168/src",
                 "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/TaskScheduler_ID721/src",
                 "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/VESC_Comms",
                 "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/myDebugHelper",
->>>>>>> feature/investigate-esp32-softwareserial
+                "C:/Users/skels/.platformio/lib/Adafruit ST7735 and ST7789 Library_ID12",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src",
+                "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
                 "C:/Users/skels/.platformio/lib/ArduinoJson_ID64/src",
                 "C:/Users/skels/.platformio/lib/Blynk_ID415/src",
                 "C:/Users/skels/.platformio/lib/FastLED_ID126",
@@ -106,7 +103,6 @@
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/NetBIOS/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SD/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SD_MMC/src",
-                "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SimpleBLE/src",
                 "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/Ticker/src",
@@ -183,19 +179,16 @@
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/esp-face",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/fb_gfx",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/cores/esp32",
-<<<<<<< HEAD
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/variants/esp32",
-                    "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/TaskScheduler_ID721/src",
-                    "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/VESC_Comms",
-=======
-                    "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/variants/pico32",
+                    "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/Adafruit GFX Library_ID13",
                     "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/EspSoftwareSerial_ID168/src",
                     "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/TaskScheduler_ID721/src",
                     "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/VESC_Comms",
                     "c:/Users/skels/Documents/Arduino/Esk8Monitor/.piolibdeps/myDebugHelper",
->>>>>>> feature/investigate-esp32-softwareserial
+                    "C:/Users/skels/.platformio/lib/Adafruit ST7735 and ST7789 Library_ID12",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src",
+                    "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
                     "C:/Users/skels/.platformio/lib/ArduinoJson_ID64/src",
                     "C:/Users/skels/.platformio/lib/Blynk_ID415/src",
                     "C:/Users/skels/.platformio/lib/FastLED_ID126",
@@ -224,7 +217,6 @@
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/NetBIOS/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SD/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SD_MMC/src",
-                    "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SPIFFS/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/SimpleBLE/src",
                     "C:/Users/skels/.platformio/packages/framework-arduinoespressif32/libraries/Ticker/src",
@@ -241,11 +233,7 @@
             },
             "defines": [
                 "PLATFORMIO=40000",
-<<<<<<< HEAD
                 "ARDUINO_ESP32_DEV",
-=======
-                "ARDUINO_ESP32_PICO",
->>>>>>> feature/investigate-esp32-softwareserial
                 "ESP32",
                 "ESP_PLATFORM",
                 "F_CPU=240000000L",
@@ -253,8 +241,8 @@
                 "MBEDTLS_CONFIG_FILE=\"mbedtls/esp_config.h\"",
                 "ARDUINO=10805",
                 "ARDUINO_ARCH_ESP32",
-                "ARDUINO_VARIANT=\"pico32\"",
-                "ARDUINO_BOARD=\"ESP32 Pico Kit\"",
+                "ARDUINO_VARIANT=\"esp32\"",
+                "ARDUINO_BOARD=\"Espressif ESP32 Dev Module\"",
                 ""
             ],
             "intelliSenseMode": "clang-x64",

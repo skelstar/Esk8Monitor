@@ -11,3 +11,4 @@
 *.dblite
 *.elf
 >>>>>>> feature/investigate-esp32-softwareserial
+*.ipch
