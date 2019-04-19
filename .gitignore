@@ -3,5 +3,4 @@
 .vscode/ipch/3cf0246259646602/mmap_address.bin
 *.bin
 *.o
-*.o
 *.dblite
