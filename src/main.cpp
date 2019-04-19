@@ -56,10 +56,8 @@ float totalOdometer;
 
 //--------------------------------------------------------------------------------
 
+// configure TX RX in vesc_comms.cpp
 vesc_comms vesc;
-
-
-// SoftwareSerial vescSS(RX, TX);
 
 bool handledFirstVescPacket = false;
 float lastStableVoltsRead = 0.0;

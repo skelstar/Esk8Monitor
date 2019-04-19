@@ -4,3 +4,5 @@
 *.bin
 *.cpp.o
 *.dblite
+*.dblite
+*.elf
