@@ -2,5 +2,12 @@
 .vscode/ipch/e2a1c7e0ddd29796/mmap_address.bin
 .vscode/ipch/3cf0246259646602/mmap_address.bin
 *.bin
+<<<<<<< HEAD
 *.o
 *.dblite
+=======
+*.cpp.o
+*.dblite
+*.dblite
+*.elf
+>>>>>>> feature/investigate-esp32-softwareserial

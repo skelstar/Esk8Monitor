@@ -1,6 +1,10 @@
 #include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
+#include <SoftwareSerial.h>
+#include <vesc_comms.h>
+
+// https://raw.githubusercontent.com/LilyGO/TTGO-TS/master/Image/TS%20V1.0.jpg
 
 /*--------------------------------------------------------------------------------*/
 
@@ -39,9 +43,7 @@ float totalAmpHours;
 float totalOdometer;
 
 //--------------------------------------------------------------
-// #define 	VESC_UART_RX		16		// orange
-// #define 	VESC_UART_TX		17		// green
-#define VESC_UART_BAUDRATE 115200
+#define VESC_UART_BAUDRATE 19200
 
 #define STORE_NAMESPACE "data"
 #define STORE_TOTAL_AMP_HOURS "totalAmpHours"
@@ -53,6 +55,7 @@ float totalOdometer;
 
 //--------------------------------------------------------------------------------
 
+// configure TX RX in vesc_comms.cpp
 vesc_comms vesc;
 
 bool handledFirstVescPacket = false;
@@ -155,6 +158,7 @@ void handlePoweringDown()
   return;
 }
 
+// gets called from ble_notify.h
 void clearTripMeterAndOdometer() {
   storeFloat( STORE_TOTAL_AMP_HOURS, 0 );
   storeFloat( STORE_TOTAL_ODOMETER, 0 );
@@ -185,6 +189,7 @@ void tGetFromVESC_callback()
 
   if (vescOnline == false)
   {
+    Serial.printf("VESC not responding!\n");
     // vesc offline
     if (millis() - lastReport > 5000)
     {
@@ -193,6 +198,7 @@ void tGetFromVESC_callback()
   }
   else
   {
+    Serial.printf("batt volts: %.1f \n", vescdata.batteryVoltage);
 		handleIfFirstVescPacket();
 
     sendDataToClient();
@@ -217,6 +223,8 @@ void tGetFromVESC_callback()
 void setup()
 {
   Serial.begin(115200);
+
+  // vescSS.begin(9600);
 
   vesc.init(VESC_UART_BAUDRATE);
 
