@@ -1,15 +1,9 @@
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
-#include <SoftwareSerial.h>
 #include <vesc_comms.h>
-#include <Adafruit_GFX.h>                                  // Core graphics library
-#include <Adafruit_ST7735.h>     
-// #include <Ucglib.h>  
-#include "display_gfx.h"
-#include <SPI.h>
 
 // https://raw.githubusercontent.com/LilyGO/TTGO-TS/master/Image/TS%20V1.0.jpg
-
+// https://www.aliexpress.com/item/Wemos-18650-Battery-shield-V3-RaspberryPi-Arduino-Lolin-ESP32-OLED-wemos-for-Arduino-ESP32S-WiFi-Modules/32807898232.html?spm=a2g0s.9042311.0.0.27424c4dy1K0TN
 /*--------------------------------------------------------------------------------*/
 
 const char compile_date[] = __DATE__ " " __TIME__;
@@ -173,7 +167,7 @@ void clearTripMeterAndOdometer() {
   Serial.printf("clearTripMeterAndOdometer() \n");
 }
 
-#include "ble_notify.h"
+// #include "ble_notify.h"
 
 void vescOfflineCallback()
 {
@@ -211,10 +205,10 @@ void tGetFromVESC_callback()
     //sendDataToClient();
 		bool updateDisplay = battVoltsOld != vescdata.batteryVoltage;
 		if ( updateDisplay ) {
-      drawBatteryTopScreen( vescdata.batteryVoltage );
-      drawAmpHoursUsed( vescdata.ampHours );
-      drawTotalAmpHours( recallFloat(STORE_TOTAL_AMP_HOURS) );
-      drawTripMeter( vescdata.odometer );
+      // drawBatteryTopScreen( vescdata.batteryVoltage );
+      // drawAmpHoursUsed( vescdata.ampHours );
+      // drawTotalAmpHours( recallFloat(STORE_TOTAL_AMP_HOURS) );
+      // drawTripMeter( vescdata.odometer );
     }
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0 && vescdata.batteryVoltage > 10;
@@ -238,11 +232,9 @@ void setup()
 {
   Serial.begin(115200);
 
-  // vescSS.begin(9600);
-
   vesc.init(VESC_UART_BAUDRATE);
 
-  setupDisplay();
+  //setupDisplay();
 
   initData();
 
@@ -252,7 +244,7 @@ void setup()
 
   // setupBLE();
 
-  drawBatteryTopScreen(vescdata.batteryVoltage);
+  // drawBatteryTopScreen(vescdata.batteryVoltage);
 }
 //--------------------------------------------------------------------------------
 void loop()
