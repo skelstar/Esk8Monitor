@@ -41,7 +41,7 @@ float totalAmpHours;
 float totalOdometer;
 
 //--------------------------------------------------------------
-#define VESC_UART_BAUDRATE 19200
+#define VESC_UART_BAUDRATE 115200
 
 #define STORE_NAMESPACE "data"
 #define STORE_TOTAL_AMP_HOURS "totalAmpHours"
@@ -167,7 +167,7 @@ void clearTripMeterAndOdometer() {
   Serial.printf("clearTripMeterAndOdometer() \n");
 }
 
-// #include "ble_notify.h"
+#include "ble_notify.h"
 
 void vescOfflineCallback()
 {
@@ -242,7 +242,7 @@ void setup()
   runner.addTask( tGetFromVESC );
   tGetFromVESC.enable();
 
-  // setupBLE();
+  setupBLE();
 
   // drawBatteryTopScreen(vescdata.batteryVoltage);
 }
