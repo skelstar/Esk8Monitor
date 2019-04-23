@@ -1,11 +1,9 @@
-#include <vesc_comms.h>
 #include <TaskScheduler.h>
 #include <rom/rtc.h>
-#include <SoftwareSerial.h>
 #include <vesc_comms.h>
 
 // https://raw.githubusercontent.com/LilyGO/TTGO-TS/master/Image/TS%20V1.0.jpg
-
+// https://www.aliexpress.com/item/Wemos-18650-Battery-shield-V3-RaspberryPi-Arduino-Lolin-ESP32-OLED-wemos-for-Arduino-ESP32S-WiFi-Modules/32807898232.html?spm=a2g0s.9042311.0.0.27424c4dy1K0TN
 /*--------------------------------------------------------------------------------*/
 
 const char compile_date[] = __DATE__ " " __TIME__;
@@ -28,9 +26,9 @@ struct VESC_DATA
   float motorCurrent;
   bool moving;
   float ampHours;
-  float totalAmpHours;
+  float ampHoursRunningTotal;
   float odometer;
-  float totalOdometer;
+  float odometerRunningTotal;
 };
 VESC_DATA vescdata;
 
@@ -39,17 +37,18 @@ VESC_DATA vescdata;
 
 float initial_ampHours = 0.0; // get from first packet from vesc
 float initial_odometer = 0.0;
-float totalAmpHours;
-float totalOdometer;
+float storedTotalAmpHoursOffsetByInitial;
+float storedTotalOdometerOffsetByInitial;
 
 //--------------------------------------------------------------
-#define VESC_UART_BAUDRATE 19200
+#define VESC_UART_BAUDRATE 115200
 
 #define STORE_NAMESPACE "data"
 #define STORE_TOTAL_AMP_HOURS "totalAmpHours"
 #define STORE_TOTAL_ODOMETER "total_odometer"
 #define STORE_POWERED_DOWN "poweredDown"
 #define STORE_LAST_VOLTAGE_READ "lastVolts"
+
 
 #include "nvmstorage.h"
 
@@ -63,13 +62,9 @@ float lastStableVoltsRead = 0.0;
 bool alreadyStoreValues = false;
 long lastReport = 0;
 
+
 //--------------------------------------------------------------
 bool controllerOnline = true;
-
-void initData() {
-  totalAmpHours = recallFloat( STORE_TOTAL_AMP_HOURS );
-  totalOdometer = recallFloat( STORE_TOTAL_ODOMETER );
-}
 //--------------------------------------------------------------
 
 int32_t rotations_to_meters(int32_t rotations)
@@ -84,17 +79,17 @@ bool getVescValues()
 
   if ( success )
   {
+
     vescdata.batteryVoltage = vesc.get_voltage(vesc_packet);
     vescdata.moving = vesc.get_rpm(vesc_packet) > 50;
     vescdata.motorCurrent = vesc.get_motor_current(vesc_packet);
     // amphours
+    float oldAmpHours = vescdata.ampHours;
     vescdata.ampHours = vesc.get_amphours_discharged(vesc_packet);
-    vescdata.totalAmpHours = vescdata.ampHours + totalAmpHours - initial_ampHours;;
     // odometer
+    float oldOdometer = vescdata.odometer;
     int32_t distanceMeters = rotations_to_meters(vesc.get_tachometer(vesc_packet) / 6);
     vescdata.odometer = distanceMeters / 1000.0;
-    vescdata.totalOdometer = vescdata.odometer + totalOdometer - initial_odometer;
-    // vescdata.vescOnline = true;
   }
   else
   {
@@ -118,18 +113,6 @@ bool hadPoweredDownNormally() {
   return normal;
 }
 
-void handleIfFirstVescPacket() {
-	if ( handledFirstVescPacket == false ) {
-		handledFirstVescPacket = true;
-    Serial.printf("handledFirstVescPacket! (%.1f) /n", vescdata.ampHours);
-		// make sure ampHours == false
-		if ( hadPoweredDownNormally() ) {
-			initial_odometer = vescdata.odometer;
-      initial_ampHours = vescdata.ampHours;
-		}
-	}
-}
-
 void handleBoardNotMoving()
 {
   lastStableVoltsRead = vescdata.batteryVoltage;
@@ -147,12 +130,10 @@ void handlePoweringDown()
     alreadyStoreValues = true;
     // store total amp hours, total odometer
 
-    float updatedTotalAmpHours = totalAmpHours + vescdata.ampHours - initial_ampHours;
-    storeFloat( STORE_TOTAL_AMP_HOURS, updatedTotalAmpHours );
-    float updatedTotalOdometer = totalOdometer + vescdata.odometer - initial_odometer;
-    storeFloat( STORE_TOTAL_ODOMETER, updatedTotalOdometer );
+    storeFloat( STORE_TOTAL_AMP_HOURS, storedTotalAmpHoursOffsetByInitial + vescdata.ampHours );
+    storeFloat( STORE_TOTAL_ODOMETER, storedTotalOdometerOffsetByInitial + vescdata.odometer );
     storeUInt8(STORE_POWERED_DOWN, 1); // true
-    Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", updatedTotalAmpHours, vescdata.ampHours);
+    Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", storedTotalAmpHoursOffsetByInitial + vescdata.ampHours, vescdata.ampHours);
     handledFirstVescPacket = false;
   }
   return;
@@ -162,9 +143,8 @@ void handlePoweringDown()
 void clearTripMeterAndOdometer() {
   storeFloat( STORE_TOTAL_AMP_HOURS, 0 );
   storeFloat( STORE_TOTAL_ODOMETER, 0 );
-  totalAmpHours = 0;
-  totalOdometer = 0;
-  Serial.printf("clearTripMeterAndOdometer() \n");
+  storedTotalAmpHoursOffsetByInitial = 0;
+  storedTotalOdometerOffsetByInitial = 0;
 }
 
 #include "ble_notify.h"
@@ -185,6 +165,7 @@ void tGetFromVESC_callback();
 Task tGetFromVESC(GET_FROM_VESC_INTERVAL, TASK_FOREVER, &tGetFromVESC_callback);
 void tGetFromVESC_callback()
 {
+  float battVoltsOld = vescdata.batteryVoltage;
   bool vescOnline = getVescValues() == true;
 
   if (vescOnline == false)
@@ -199,8 +180,9 @@ void tGetFromVESC_callback()
   else
   {
     Serial.printf("batt volts: %.1f \n", vescdata.batteryVoltage);
-		handleIfFirstVescPacket();
 
+    vescdata.ampHoursRunningTotal = storedTotalAmpHoursOffsetByInitial + vescdata.ampHours;
+    vescdata.odometerRunningTotal = storedTotalOdometerOffsetByInitial + vescdata.odometer;
     sendDataToClient();
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0 && vescdata.batteryVoltage > 10;
@@ -224,11 +206,16 @@ void setup()
 {
   Serial.begin(115200);
 
-  // vescSS.begin(9600);
-
   vesc.init(VESC_UART_BAUDRATE);
 
-  initData();
+  while ( getVescValues() == false ) {
+    delay(1);
+    yield();
+  }
+
+    // just got first packet
+  storedTotalAmpHoursOffsetByInitial = recallFloat( STORE_TOTAL_AMP_HOURS ) - vescdata.ampHours;
+  storedTotalOdometerOffsetByInitial = recallFloat( STORE_TOTAL_ODOMETER ) - vescdata.odometer;
 
   runner.startNow();
   runner.addTask( tGetFromVESC );

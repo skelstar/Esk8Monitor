@@ -1,17 +1,7 @@
 
-.vscode/ipch/e2a1c7e0ddd29796/mmap_address.bin
-.vscode/ipch/3cf0246259646602/mmap_address.bin
+.vscode/
 *.bin
-<<<<<<< HEAD
-*.o
-*.dblite
-=======
 *.cpp.o
 *.dblite
-*.dblite
 *.elf
->>>>>>> feature/investigate-esp32-softwareserial
 *.ipch
-.vscode/.BROWSE.C_CPP.DB
-.vscode/.BROWSE.C_CPP.DB-shm
-.vscode/.BROWSE.C_CPP.DB-wal
