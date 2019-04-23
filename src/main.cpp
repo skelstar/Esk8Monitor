@@ -26,7 +26,9 @@ struct VESC_DATA
   float motorCurrent;
   bool moving;
   float ampHours;
+  float ampHoursRunningTotal;
   float odometer;
+  float odometerRunningTotal;
 };
 VESC_DATA vescdata;
 
@@ -35,8 +37,8 @@ VESC_DATA vescdata;
 
 float initial_ampHours = 0.0; // get from first packet from vesc
 float initial_odometer = 0.0;
-float totalAmpHours;
-float totalOdometer;
+float storedTotalAmpHoursOffsetByInitial;
+float storedTotalOdometerOffsetByInitial;
 
 //--------------------------------------------------------------
 #define VESC_UART_BAUDRATE 115200
@@ -128,10 +130,10 @@ void handlePoweringDown()
     alreadyStoreValues = true;
     // store total amp hours, total odometer
 
-    storeFloat( STORE_TOTAL_AMP_HOURS, totalAmpHours + vescdata.ampHours );
-    storeFloat( STORE_TOTAL_ODOMETER, totalOdometer + vescdata.odometer );
+    storeFloat( STORE_TOTAL_AMP_HOURS, storedTotalAmpHoursOffsetByInitial + vescdata.ampHours );
+    storeFloat( STORE_TOTAL_ODOMETER, storedTotalOdometerOffsetByInitial + vescdata.odometer );
     storeUInt8(STORE_POWERED_DOWN, 1); // true
-    Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", totalAmpHours + vescdata.ampHours, vescdata.ampHours);
+    Serial.printf("Powering down. Storing totalAmpHours (%.1f + %.1f)\n", storedTotalAmpHoursOffsetByInitial + vescdata.ampHours, vescdata.ampHours);
     handledFirstVescPacket = false;
   }
   return;
@@ -141,9 +143,8 @@ void handlePoweringDown()
 void clearTripMeterAndOdometer() {
   storeFloat( STORE_TOTAL_AMP_HOURS, 0 );
   storeFloat( STORE_TOTAL_ODOMETER, 0 );
-  totalAmpHours = 0;
-  totalOdometer = 0;
-  Serial.printf("clearTripMeterAndOdometer() \n");
+  storedTotalAmpHoursOffsetByInitial = 0;
+  storedTotalOdometerOffsetByInitial = 0;
 }
 
 #include "ble_notify.h"
@@ -180,6 +181,8 @@ void tGetFromVESC_callback()
   {
     Serial.printf("batt volts: %.1f \n", vescdata.batteryVoltage);
 
+    vescdata.ampHoursRunningTotal = storedTotalAmpHoursOffsetByInitial + vescdata.ampHours;
+    vescdata.odometerRunningTotal = storedTotalOdometerOffsetByInitial + vescdata.odometer;
     sendDataToClient();
 
     bool vescPoweringDown = vescdata.batteryVoltage < 32.0 && vescdata.batteryVoltage > 10;
@@ -207,21 +210,18 @@ void setup()
 
   while ( getVescValues() == false ) {
     delay(1);
-    yield;
+    yield();
   }
 
     // just got first packet
-  Serial.printf("Initial ampHours: %.1fAh\n", vescdata.ampHours);
-  totalAmpHours = recallFloat( STORE_TOTAL_AMP_HOURS ) - vescdata.ampHours;
-  totalOdometer = recallFloat( STORE_TOTAL_ODOMETER ) - vescdata.odometer;
+  storedTotalAmpHoursOffsetByInitial = recallFloat( STORE_TOTAL_AMP_HOURS ) - vescdata.ampHours;
+  storedTotalOdometerOffsetByInitial = recallFloat( STORE_TOTAL_ODOMETER ) - vescdata.odometer;
 
   runner.startNow();
   runner.addTask( tGetFromVESC );
   tGetFromVESC.enable();
 
   setupBLE();
-
-  // drawBatteryTopScreen(vescdata.batteryVoltage);
 }
 //--------------------------------------------------------------------------------
 void loop()
