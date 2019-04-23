@@ -5,7 +5,7 @@
 
 Preferences preferences;
 
-void storeUInt8(char* name, uint8_t value) {
+void storeUInt8(const char* name, uint8_t value) {
 	preferences.begin(STORE_NAMESPACE, false);	// r/w
 	preferences.putUChar(name, value);
 	preferences.end();
